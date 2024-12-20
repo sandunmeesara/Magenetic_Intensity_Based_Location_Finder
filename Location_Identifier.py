@@ -88,7 +88,7 @@ def read_serial_data():
             print(f"The robot is at: {location}")
             update_robot_position(location)
             previous_location = location
-    root.after(1, read_serial_data)  # Schedule the function to be called again after 100ms
+    root.after(1, read_serial_data)  # Schedule the function to be called again after 1ms
 
 previous_location = None
 root.after(1, read_serial_data)  # Schedule the first call to read_serial_data
