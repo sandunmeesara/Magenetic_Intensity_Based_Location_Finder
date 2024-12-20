@@ -4,6 +4,15 @@ import numpy as np
 import pandas as pd
 import serial
 
+# Get input from the user for the starting and target locations
+Starting_location = (input("Enter the starting location no: ")).strip()
+Target_location = (input("Enter the target location no: ")).strip()
+Starting_location = f"data_location_{Starting_location}"
+Target_location = f"data_location_{Target_location}"
+# print(f"Starting location: {Starting_location}")
+# print(f"Target location: {Target_location}")
+
+
 # Configure the serial port
 ser = serial.Serial(
     port='COM10',        # Replace with your port name
@@ -12,11 +21,41 @@ ser = serial.Serial(
 )
 print("Serial port configured to COM10!")
 
+# Load location map coordinates distances for calculate angle to turn to the final location
+distances = pd.read_csv("e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/map_coordinates_distances.csv")
+
 # Load location map coordinates for mapping
 coordinates = pd.read_csv("e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/map_coordinates.csv")
 
 # Load reference location dataset for calculate the Euclidean distance
 ref_data = pd.read_csv("e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/Locations.csv")
+
+# Get the (x, y) distances of the Starting_location
+Starting_location = distances[distances['Location'] == Starting_location]
+if not Starting_location.empty:
+    x1, y1 = Starting_location.iloc[0]['X'], Starting_location.iloc[0]['Y']
+
+# Get the (x, y) distances of the Target_location
+Target_location = distances[distances['Location'] == Target_location]
+if not Target_location.empty:
+    x2, y2 = Target_location.iloc[0]['X'], Target_location.iloc[0]['Y']
+
+print(f"Starting location: {Starting_location}")
+print(f"Target location: {Target_location}")
+
+# # Calculate the angle to turn to the final location
+# angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
+# angle = angle if angle >= 0 else 360 + angle
+# print(f"Angle to turn: {angle}")
+
+# Calculate the angle to turn to the final location in radians
+angle = np.arctan2(y2 - y1, x2 - x1)
+angle = angle if angle >= 0 else 2 * np.pi + angle
+print(f"Angle to turn (radians): {angle}")
+
+# Send data using serial port
+ser.write(str(angle).encode('utf-8'))
+print(f"Sent: {str(angle)}")
 
 # Initialize Tkinter
 root = tk.Tk()
