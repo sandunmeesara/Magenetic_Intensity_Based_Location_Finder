@@ -1,3 +1,13 @@
+# ------------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------------
+ 
+#                                      Author : Sandun Meesara Nakandala
+#                                      Date   : 2024-12-31
+#                                      Description : Location Identifier
+
+# ------------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------------
+
 import tkinter as tk
 from PIL import Image, ImageTk
 import numpy as np
@@ -6,10 +16,11 @@ import serial
 
 #----------------------------Functions Section----------------------------
 
-# Function to update robot's position
+# Function to update robot's position ----------------------------------------
 def update_robot_position(location_name):
     # Clear the previous marker
-    canvas.delete("robot_marker")
+    #canvas.delete("robot_marker")
+
     # Get the (x, y) coordinates of the location
     location = coordinates[coordinates['Location'] == location_name]
     if not location.empty:
@@ -20,7 +31,7 @@ def update_robot_position(location_name):
         )
         print(f"Marker is placed at the location {location_name}")
 
-# Function to compute Euclidean distance
+# Function to compute Euclidean distance ----------------------------------------
 def find_closest_location(real_time_data, ref_data):
     distances = []
     for index, row in ref_data.iterrows():
@@ -34,7 +45,7 @@ def find_closest_location(real_time_data, ref_data):
     distances.sort(key=lambda x: x[1])
     return distances[0][0]  # Return the closest location name
 
-# Fucntion to read data from the serial port
+# Fucntion to read data from the serial port ----------------------------------------
 def read_serial_data():
     global previous_location
     if ser.in_waiting > 0:
@@ -52,6 +63,18 @@ def read_serial_data():
         
         # Find the closest location
         location = find_closest_location(real_time_data, ref_data)
+
+        # Extract the location name from the DataFrame
+        target_location_name = Target_location.iloc[0]['Location']
+
+        # Check if the robot has reached the target location
+        if (location == target_location_name):
+            print(f"Robot has reached the target location: {location}")
+            # Send data using serial port
+            command_to_send = "5"
+            ser.write(command_to_send.encode('utf-8'))
+            print(f"Sent: {command_to_send}")
+            ser.write("\n".encode('utf-8'))
         
         # Check if the location has changed
         if location != previous_location:
@@ -134,9 +157,9 @@ print(f"Starting location: {Starting_location}")
 print(f"Target location: {Target_location}")
 
 # Calculate the angle to turn to the final location
-# angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
-# angle = angle if angle >= 0 else 360 + angle
-# print(f"Angle to turn: {angle}")
+angle_degrees = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
+angle_degrees = angle_degrees if angle_degrees >= 0 else 360 + angle_degrees
+print(f"Angle to turn: {angle_degrees}")
 
 # # Calculate the angle to turn to the final location in radians
 angle = np.arctan2(y2 - y1, x2 - x1)
