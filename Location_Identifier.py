@@ -75,6 +75,7 @@ def read_serial_data():
             ser.write(command_to_send.encode('utf-8'))
             print(f"Sent: {command_to_send}")
             ser.write("\n".encode('utf-8'))
+            return
         
         # Check if the location has changed
         if location != previous_location:
