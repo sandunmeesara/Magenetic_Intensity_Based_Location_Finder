@@ -43,19 +43,23 @@ if not Target_location.empty:
 print(f"Starting location: {Starting_location}")
 print(f"Target location: {Target_location}")
 
-# # Calculate the angle to turn to the final location
+# Calculate the angle to turn to the final location
 # angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
 # angle = angle if angle >= 0 else 360 + angle
 # print(f"Angle to turn: {angle}")
 
-# Calculate the angle to turn to the final location in radians
+# # Calculate the angle to turn to the final location in radians
 angle = np.arctan2(y2 - y1, x2 - x1)
 angle = angle if angle >= 0 else 2 * np.pi + angle
 print(f"Angle to turn (radians): {angle}")
 
 # Send data using serial port
+command_to_send = "6"
+ser.write(command_to_send.encode('utf-8'))
+print(f"Sent: {command_to_send}")
 ser.write(str(angle).encode('utf-8'))
 print(f"Sent: {str(angle)}")
+ser.write("\n".encode('utf-8'))
 
 # Initialize Tkinter
 root = tk.Tk()
