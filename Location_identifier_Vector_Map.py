@@ -62,5 +62,30 @@ ax.set_ylim([y_coords.min() - padding, y_coords.max() + padding])
 # Optional: Make sure the aspect ratio is equal to avoid distortion
 ax.set_aspect('equal')
 
-# Step 11: Show the plot
+# Step 11: Test data input for magnetic intensity (x, y, z)
+test_data = np.array([5.0, 10.0, -3.0])  # Example test data (x, y, z)
+
+# Step 12: Compute the Euclidean distance for each location's magnetic intensity
+def calculate_distance(test_data, location_data):
+    test_x, test_y, test_z = test_data
+    distances = np.sqrt((location_data['M_X'] - test_x)**2 + (location_data['M_Y'] - test_y)**2 + (location_data['M_Z'] - test_z)**2)
+    return distances
+
+# Step 13: Find the location with the minimum distance (best match)
+distances = calculate_distance(test_data, merged_data)
+print(distances)
+best_match_index = np.argmin(distances)
+best_match_location = merged_data['Location'].iloc[best_match_index]
+print(f"The location that matches the test data is: {best_match_location}")
+
+# Step 14: Highlight the matching location (marking with a solid color)
+matching_x = x_coords.iloc[best_match_index]
+matching_y = y_coords.iloc[best_match_index]
+matching_u = u.iloc[best_match_index]
+matching_v = v.iloc[best_match_index]
+
+# Highlight the vector with a solid color (red)
+ax.quiver(matching_x, matching_y, matching_u, matching_v, angles='xy', scale_units='xy', scale=scale_factor, color='red', width=0.005)
+
+# Step 15: Show the plot
 plt.show()
