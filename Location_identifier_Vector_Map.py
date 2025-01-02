@@ -73,19 +73,22 @@ def calculate_distance(test_data, location_data):
 
 # Step 13: Find the location with the minimum distance (best match)
 distances = calculate_distance(test_data, merged_data)
-print(distances)
 best_match_index = np.argmin(distances)
 best_match_location = merged_data['Location'].iloc[best_match_index]
 print(f"The location that matches the test data is: {best_match_location}")
 
-# Step 14: Highlight the matching location (marking with a solid color)
+# Step 14: Highlight the matching location with bold red color
 matching_x = x_coords.iloc[best_match_index]
 matching_y = y_coords.iloc[best_match_index]
 matching_u = u.iloc[best_match_index]
 matching_v = v.iloc[best_match_index]
 
-# Highlight the vector with a solid color (red)
-ax.quiver(matching_x, matching_y, matching_u, matching_v, angles='xy', scale_units='xy', scale=scale_factor, color='red', width=0.005)
+# Highlight the vector with a bold red color
+# ax.quiver(matching_x, matching_y, matching_u, matching_v, angles='xy', scale_units='xy', scale=scale_factor, color='blue', width=0.01)
+
+# Also plot the vector for the test data as a bold red line
+ax.quiver(matching_x, matching_y, test_data[0], test_data[1], angles='xy', scale_units='xy', scale=scale_factor, color='green', width=0.01, label='Test Data Vector')
 
 # Step 15: Show the plot
+plt.legend()  # Show the legend for the test data vector
 plt.show()
