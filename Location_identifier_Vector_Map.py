@@ -4,11 +4,10 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.colors import Normalize
 import serial
-import time
 
 # Step 1: Load the data
-location_data = pd.read_csv('e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/Locations.csv')  # Modify with the actual file path
-magnetic_data = pd.read_csv('e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/map_coordinates_distances.csv')  # Modify with the actual file path
+location_data = pd.read_csv('e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/Locations_&_Tile_Coordinates.csv')  # Modify with the actual file path
+magnetic_data = pd.read_csv('e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/Locations_&_Magnetic_Data.csv')  # Modify with the actual file path
 
 # Step 2: Merge the data on 'Location'
 merged_data = pd.merge(location_data, magnetic_data, on='Location')
@@ -73,6 +72,7 @@ def plot_real_time(real_time_data):
     global quiver_plot, previous_best_match_location
 
     # Step 13: Find the location with the minimum distance (best match)
+    
     distances = calculate_distance(real_time_data, merged_data)
     best_match_index = np.argmin(distances)
     best_match_location = merged_data['Location'].iloc[best_match_index]
@@ -85,8 +85,8 @@ def plot_real_time(real_time_data):
         # Step 14: Highlight the matching location with bold red color
         matching_x = x_coords.iloc[best_match_index]
         matching_y = y_coords.iloc[best_match_index]
-        matching_u = u.iloc[best_match_index]
-        matching_v = v.iloc[best_match_index]
+        matching_u = real_time_data[0]
+        matching_v = real_time_data[1]
 
         # Remove the previous quiver plot if it exists
         if hasattr(plot_real_time, 'highlight_quiver'):
