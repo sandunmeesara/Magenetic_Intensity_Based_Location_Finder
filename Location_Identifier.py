@@ -14,7 +14,19 @@ import numpy as np
 import pandas as pd
 import serial
 
+#---------------------------Global Variables Section----------------------------
+matched_location = ''
+#---------------------------Global Variables Section End----------------------------
+
 #----------------------------Functions Section----------------------------
+
+# Function to select only nearest locations for calculate the Euclidean distance
+def select_nearest_locations(distances,ref_data,template_size,matched_location):
+    matched_location_x = distances[distances['Location'] == matched_location].iloc[0]['X']
+    matched_location_y = distances[distances['Location'] == matched_location].iloc[0]['Y']
+    selected_locations = distances[(distances['X'] >= matched_location_x - template_size) & (distances['X'] <= matched_location_x + template_size) & (distances['Y'] >= matched_location_y - template_size) & (distances['Y'] <= matched_location_y + template_size)]
+    filtered_data = ref_data[ref_data['Location'].isin(selected_locations['Location'])]
+    return filtered_data
 
 # Function to update robot's position ----------------------------------------
 def update_robot_position(location_name):
@@ -32,9 +44,14 @@ def update_robot_position(location_name):
         print(f"Marker is placed at the location {location_name}")
 
 # Function to compute Euclidean distance ----------------------------------------
-def find_closest_location(real_time_data, ref_data):
+def find_closest_location(real_time_data, filtered_data):
+    # matched_location_x = distances[distances['Location'] == matched_location].iloc[0]['X']
+    # matched_location_y = distances[distances['Location'] == matched_location].iloc[0]['Y']
+    # selected_locations = distances[(distances['X'] >= matched_location_x - template_size) & (distances['X'] <= matched_location_x + template_size) & (distances['Y'] >= matched_location_y - template_size) & (distances['Y'] <= matched_location_y + template_size)]
+    # filtered_data = ref_data[ref_data['Location'].isin(selected_locations['Location'])]
+    
     distances = []
-    for index, row in ref_data.iterrows():
+    for index, row in filtered_data.iterrows():
         distance = np.sqrt(
             (real_time_data[0] - row['M_X'])**2 +
             (real_time_data[1] - row['M_Y'])**2 +
@@ -48,6 +65,7 @@ def find_closest_location(real_time_data, ref_data):
 # Fucntion to read data from the serial port ----------------------------------------
 def read_serial_data():
     global previous_location
+    global matched_location
     if ser.in_waiting > 0:
         real_time_data = ser.readline().decode('utf-8').rstrip()
         #print(f"Received: {real_time_data}")
@@ -61,8 +79,15 @@ def read_serial_data():
         #print(type(real_time_data))
         #print(real_time_data)
         
+        # Select only nearest locations for calculate the Euclidean distance
+        template_size = 1
+        filtered_data = select_nearest_locations(distances,ref_data,template_size,matched_location)
+        # print(filtered_data)
+
         # Find the closest location
-        location = find_closest_location(real_time_data, ref_data)
+        location = find_closest_location(real_time_data, filtered_data)
+        matched_location = location
+        # print(f"Closest location: {matched_location}")
 
         # Extract the location name from the DataFrame
         target_location_name = Target_location.iloc[0]['Location']
@@ -101,13 +126,13 @@ print("Serial port configured to COM10!")
 #----------------------------Data Section----------------------------
 
 # Load location map coordinates distances for calculate angle to turn to the final location
-distances = pd.read_csv("e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/map_coordinates_distances.csv")
+distances = pd.read_csv("e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/Locations_&_Tile_Coordinates.csv")
 
 # Load location map coordinates for mapping
-coordinates = pd.read_csv("e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/map_coordinates.csv")
+coordinates = pd.read_csv("e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/Map_Image_Pixel_Coordinates_for_Locations.csv")
 
 # Load reference location dataset for calculate the Euclidean distance
-ref_data = pd.read_csv("e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/Locations.csv")
+ref_data = pd.read_csv("e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/Locations_&_Magnetic_Data.csv")
 
 #----------------------------Data Section End----------------------------
 
@@ -115,6 +140,7 @@ ref_data = pd.read_csv("e:/University/University lectures/4. Final Year/Semester
 
 # Get input from the user for the starting and target locations
 Starting_location = (input("Enter the starting location no: ")).strip()
+matched_location = "data_location_" + str(Starting_location)
 Target_location = (input("Enter the target location no: ")).strip()
 Starting_location = f"data_location_{Starting_location}"
 Target_location = f"data_location_{Target_location}"
