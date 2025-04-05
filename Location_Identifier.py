@@ -194,12 +194,12 @@ angle = angle if angle >= 0 else 2 * np.pi + angle
 print(f"Angle to turn (radians): {angle}")
 
 # Send data using serial port
-command_to_send = "6"
+command_to_send = "t" + str(angle)
 ser.write(command_to_send.encode('utf-8'))
 print(f"Sent: {command_to_send}")
-ser.write(str(angle).encode('utf-8'))
-print(f"Sent: {str(angle)}")
-ser.write("\n".encode('utf-8'))
+# ser.write(str(angle).encode('utf-8'))
+# print(f"Sent: {str(angle)}")
+# ser.write("\n".encode('utf-8'))
 
 # Initialize the previous location
 previous_location = None
