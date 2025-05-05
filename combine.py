@@ -18,8 +18,8 @@ class CombinedLocationVisualization:
         self.root.title("Magnetic Vector Visualization & Control")
         
         # Set a fixed minimum size to prevent controls from disappearing
-        self.root.geometry("1200x1000")  # Make it even bigger to fit everything
-        self.root.minsize(1100, 900)     # Increase minimum size
+        self.root.geometry("1200x900")  # Make it even bigger to fit everything
+        self.root.minsize(1100, 800)     # Increase minimum size
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
         # Configure styles for large buttons
@@ -50,27 +50,44 @@ class CombinedLocationVisualization:
         # Load data
         self.load_data()
         
-        # Create main container with GRID layout for more control
+        # Create main container
         self.main_container = ttk.Frame(root)
         self.main_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.main_container.columnconfigure(0, weight=1)
         
-        # Configure row weights to ensure proper distribution
-        self.main_container.rowconfigure(0, weight=1)  # Top part expands
-        self.main_container.rowconfigure(1, weight=0, minsize=200)  # Bottom part has fixed minimum size
+        # Configure columns for side-by-side layout
+        self.main_container.columnconfigure(0, weight=1)  # Left column (controls)
+        self.main_container.columnconfigure(1, weight=2)  # Right column (visualization)
         
-        # Create top frame for vector visualization
-        self.top_frame = ttk.Frame(self.main_container)
-        self.top_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        # Configure rows
+        self.main_container.rowconfigure(0, weight=1)  # Top row (both controls and visualization)
+        self.main_container.rowconfigure(1, weight=0, minsize=150)  # Bottom row (system log)
         
-        # Create bottom frame for controls with FIXED HEIGHT to ensure visibility
-        self.bottom_frame = ttk.LabelFrame(self.main_container, text="Control Panel")
-        self.bottom_frame.grid(row=1, column=0, sticky="ew", padx=5, pady=5)
+        # Create left panel for controls
+        self.left_panel = ttk.Frame(self.main_container)
+        self.left_panel.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         
-        # Setup control panel FIRST to initialize log_text
-        self.setup_control_panel()
+        # Create right panel for vector visualization
+        self.right_panel = ttk.Frame(self.main_container)
+        self.right_panel.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
         
-        # Setup vector visualization
+        # Create bottom panel for system log
+        self.bottom_panel = ttk.LabelFrame(self.main_container, text="System Log")
+        self.bottom_panel.grid(row=1, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
+        
+        # Configure left panel to stack controls vertically
+        self.left_panel.rowconfigure(0, weight=0)  # Serial connection
+        self.left_panel.rowconfigure(1, weight=0)  # Location settings
+        self.left_panel.rowconfigure(2, weight=0)  # Map & Algorithm settings
+        self.left_panel.rowconfigure(3, weight=1)  # Extra space at the bottom
+        self.left_panel.columnconfigure(0, weight=1)  # Full width
+        
+        # Setup log panel first to initialize log_text
+        self.setup_log_panel()
+        
+        # Setup control panels on the left
+        self.setup_left_control_panels()
+        
+        # Setup vector visualization on the right
         self.setup_vector_panel()
         
         # Create separate window for map
@@ -212,14 +229,20 @@ class CombinedLocationVisualization:
                                       font=('Arial', 14, 'bold'), fill='red')
     
     def setup_vector_panel(self):
-        """Set up the 3D vector visualization panel in the main window"""
-        # Use a PanedWindow to create resizable sections
-        paned = ttk.PanedWindow(self.top_frame, orient=tk.VERTICAL)
-        paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        """Set up the 3D vector visualization panel on the right side of the main window"""
+        # Create a vertical layout
+        vector_main_frame = ttk.Frame(self.right_panel)
+        vector_main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Create a labeled frame for vector visualization in the top pane
-        self.vector_frame = ttk.LabelFrame(paned, text="Magnetic Vector Visualization")
-        paned.add(self.vector_frame, weight=3)  # Give more weight to the plot
+        # Configure row weights to give more space to the plot
+        vector_main_frame.rowconfigure(0, weight=4)  # Vector visualization (larger)
+        vector_main_frame.rowconfigure(1, weight=1)  # Vector controls (smaller)
+        vector_main_frame.rowconfigure(2, weight=0)  # Vector info (fixed size)
+        vector_main_frame.columnconfigure(0, weight=1)  # Full width
+        
+        # Create a labeled frame for vector visualization
+        self.vector_frame = ttk.LabelFrame(vector_main_frame, text="Magnetic Vector Visualization")
+        self.vector_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         
         # Create figure and 3D axis
         self.fig = plt.Figure(figsize=(6, 5), dpi=100)
@@ -247,20 +270,16 @@ class CombinedLocationVisualization:
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         
-        # Create a lower pane specifically for controls that will always be visible
-        controls_container = ttk.Frame(paned)
-        paned.add(controls_container, weight=1)  # Give less weight but ensure visibility
-        
-        # More professional visualization options panel with less color
-        viz_options = ttk.LabelFrame(controls_container, text="Visualization Controls")
-        viz_options.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        # Create control panel below the visualization
+        viz_options = ttk.LabelFrame(vector_main_frame, text="Visualization Controls")
+        viz_options.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
         
         # Container for checkboxes with neutral background
         checkbox_frame = ttk.Frame(viz_options)
         checkbox_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Use fixed height but with professional colors
-        checkbox_frame.configure(height=150, width=800)
+        checkbox_frame.configure(height=100, width=800)
         checkbox_frame.pack_propagate(False)  # Prevent shrinking
         
         # History trace checkbox with standard styling
@@ -329,8 +348,8 @@ class CombinedLocationVisualization:
         value_label.pack()
         
         # Vector information panel below the controls
-        self.vector_info_frame = ttk.LabelFrame(self.top_frame, text="Vector Information")
-        self.vector_info_frame.pack(fill=tk.X, padx=5, pady=5)
+        self.vector_info_frame = ttk.LabelFrame(vector_main_frame, text="Vector Information")
+        self.vector_info_frame.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
         
         # Grid for vector components
         grid_frame = ttk.Frame(self.vector_info_frame)
@@ -537,17 +556,14 @@ class CombinedLocationVisualization:
         )
         show_template_btn.grid(row=5, column=0, columnspan=4, padx=5, pady=5, sticky=tk.EW)
         
-        # Log frame - NEW ROW spanning all columns for consistent display
-        self.log_frame = ttk.LabelFrame(self.bottom_frame, text="System Log")
-        self.log_frame.grid(row=1, column=0, columnspan=3, padx=10, pady=10, sticky="nsew")
-        
-        # Configure row weights to ensure log frame gets proper space
-        self.bottom_frame.rowconfigure(0, weight=0)  # Control row doesn't expand
-        self.bottom_frame.rowconfigure(1, weight=1)  # Log row expands to fill space
-        
+        # Initialize the template info display
+        self.update_template_info()
+    
+    def setup_log_panel(self):
+        """Set up the bottom log panel"""
         # Text widget for logs
-        self.log_text = tk.Text(self.log_frame, height=5, width=80)
-        self.log_scroll = ttk.Scrollbar(self.log_frame, orient=tk.VERTICAL, command=self.log_text.yview)
+        self.log_text = tk.Text(self.bottom_panel, height=8, width=80)
+        self.log_scroll = ttk.Scrollbar(self.bottom_panel, orient=tk.VERTICAL, command=self.log_text.yview)
         self.log_text.configure(yscrollcommand=self.log_scroll.set)
         
         self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -559,10 +575,166 @@ class CombinedLocationVisualization:
         self.log_message("2. Enter starting and target location numbers")
         self.log_message("3. Select Map and Algorithm if needed")
         self.log_message("4. Click 'Set Locations' to initialize navigation")
+
+    def setup_left_control_panels(self):
+        """Set up the control panels on the left side of the main window"""
+        # Serial connection frame
+        self.conn_frame = ttk.LabelFrame(self.left_panel, text="Serial Connection")
+        self.conn_frame.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        
+        # COM Port selection
+        ttk.Label(self.conn_frame, text="COM Port:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        self.port_var = tk.StringVar(value="COM10")
+        self.port_entry = ttk.Entry(self.conn_frame, width=10, textvariable=self.port_var)
+        self.port_entry.grid(row=0, column=1, padx=5, pady=5)
+        
+        # Baud Rate selection
+        ttk.Label(self.conn_frame, text="Baud Rate:").grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
+        self.baud_var = tk.IntVar(value=9600)
+        baud_options = [9600, 19200, 38400, 57600, 115200]
+        self.baud_combo = ttk.Combobox(self.conn_frame, width=8, textvariable=self.baud_var, values=baud_options)
+        self.baud_combo.grid(row=1, column=1, padx=5, pady=5)
+        
+        # Connect/Disconnect button
+        self.conn_button = ttk.Button(self.conn_frame, text="Connect", command=self.toggle_connection,
+                                     style="Big.TButton")
+        self.conn_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
+        
+        # Location settings frame
+        self.location_frame = ttk.LabelFrame(self.left_panel, text="Location Settings")
+        self.location_frame.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+        
+        # Starting location input
+        ttk.Label(self.location_frame, text="Starting Location:").grid(
+            row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        self.start_loc_var = tk.StringVar()
+        self.start_loc_entry = ttk.Entry(self.location_frame, width=10, textvariable=self.start_loc_var, 
+                                       font=('TkDefaultFont', 10))
+        self.start_loc_entry.grid(row=0, column=1, padx=5, pady=5)
+        
+        # Target location input
+        ttk.Label(self.location_frame, text="Target Location:").grid(
+            row=1, column=0, padx=5, pady=5, sticky=tk.W)
+        self.target_loc_var = tk.StringVar()
+        self.target_loc_entry = ttk.Entry(self.location_frame, width=10, textvariable=self.target_loc_var,
+                                        font=('TkDefaultFont', 10))
+        self.target_loc_entry.grid(row=1, column=1, padx=5, pady=5)
+        
+        # Set locations button
+        self.set_locations_button = ttk.Button(self.location_frame, text="Set Locations", 
+                                             command=self.set_locations,
+                                             style="Big.TButton")
+        self.set_locations_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
+        
+        # Template & Algorithm Settings frame
+        self.settings_frame = ttk.LabelFrame(self.left_panel, text="Map & Algorithm Settings")
+        self.settings_frame.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
+        
+        # Use a notebook with tabs for better organization
+        settings_notebook = ttk.Notebook(self.settings_frame)
+        settings_notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Tab 1: Map & Algorithm Settings
+        map_algo_tab = ttk.Frame(settings_notebook)
+        settings_notebook.add(map_algo_tab, text="Map & Algorithm")
+        
+        # Map selection
+        ttk.Label(map_algo_tab, text="Select Map:").grid(
+            row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        
+        # Map options
+        self.map_var = tk.StringVar(value="Default Map")
+        self.map_options = ["Default Map", "Blueprint Map", "Satellite Map", "Schematic Map"]
+        self.map_combo = ttk.Combobox(map_algo_tab, width=15, 
+                                    textvariable=self.map_var, 
+                                    values=self.map_options)
+        self.map_combo.grid(row=0, column=1, padx=5, pady=5)
+        self.map_combo.bind("<<ComboboxSelected>>", self.change_map)
+        
+        # Algorithm selection
+        ttk.Label(map_algo_tab, text="Location Algorithm:").grid(
+            row=1, column=0, padx=5, pady=5, sticky=tk.W)
+        
+        # Algorithm options
+        self.algo_var = tk.StringVar(value="Euclidean Distance")
+        self.algo_options = ["Euclidean Distance", "Manhattan Distance", "Weighted Average", "KNN (K=3)"]
+        self.algo_combo = ttk.Combobox(map_algo_tab, width=15, 
+                                    textvariable=self.algo_var, 
+                                    values=self.algo_options)
+        self.algo_combo.grid(row=1, column=1, padx=5, pady=5)
+        self.algo_combo.bind("<<ComboboxSelected>>", self.change_algorithm)
+        
+        # Apply settings button
+        self.apply_settings_button = ttk.Button(map_algo_tab, text="Apply Settings", 
+                                             command=self.apply_map_algo_settings,
+                                             style="Big.TButton")
+        self.apply_settings_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
+        
+        # Tab 2: Template Settings
+        template_tab = ttk.Frame(settings_notebook)
+        settings_notebook.add(template_tab, text="Template Settings")
+        
+        # Template size control
+        template_frame = ttk.Frame(template_tab)
+        template_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Template size label
+        ttk.Label(template_frame, text="Template Size:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        
+        # Initialize template size variable
+        self.template_size_var = tk.IntVar(value=5)
+        
+        # Template size entry (spinner)
+        template_spinner = ttk.Spinbox(
+            template_frame, 
+            from_=1, 
+            to=20, 
+            textvariable=self.template_size_var,
+            width=5,
+            wrap=True,
+            command=self.update_template_info
+        )
+        template_spinner.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
+        
+        # Matched location display
+        ttk.Label(template_frame, text="Current Matched Location:").grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
+        self.matched_loc_display = ttk.Label(
+            template_frame, 
+            text="None yet", 
+            font=('TkDefaultFont', 10, 'bold')
+        )
+        self.matched_loc_display.grid(row=1, column=1, columnspan=3, padx=5, pady=5, sticky=tk.W)
+        
+        # Template Info Text
+        ttk.Label(template_frame, text="Template Info:").grid(row=2, column=0, padx=5, pady=5, sticky=tk.NW)
+        
+        # Small scrollable text area to display template info
+        template_info_frame = ttk.Frame(template_frame)
+        template_info_frame.grid(row=2, column=1, columnspan=3, rowspan=3, padx=5, pady=5, sticky=tk.NSEW)
+        
+        # Configure row weights for expansion
+        template_frame.rowconfigure(2, weight=1)
+        template_frame.columnconfigure(1, weight=1)
+        
+        # Create Text widget with scrollbar
+        self.template_info_text = tk.Text(template_info_frame, height=5, width=25)
+        template_info_scroll = ttk.Scrollbar(template_info_frame, orient=tk.VERTICAL, command=self.template_info_text.yview)
+        self.template_info_text.configure(yscrollcommand=template_info_scroll.set)
+        
+        self.template_info_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        template_info_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Button to show template on map
+        show_template_btn = ttk.Button(
+            template_frame, 
+            text="Show Template on Map", 
+            command=self.apply_template_to_main_map
+        )
+        show_template_btn.grid(row=5, column=0, columnspan=4, padx=5, pady=5, sticky=tk.EW)
         
         # Initialize the template info display
         self.update_template_info()
-    
+
     def draw_coordinate_axes(self):
         """Draw the coordinate axes in the 3D plot"""
         # X-axis in red
@@ -1735,5 +1907,5 @@ def main():
     app = CombinedLocationVisualization(root)
     root.mainloop()
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # <-- The '==' was missing
     main()
