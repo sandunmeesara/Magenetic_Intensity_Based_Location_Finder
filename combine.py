@@ -570,12 +570,17 @@ class CombinedLocationVisualization:
             mid_x = (x1 + x2) / 2
             mid_y = (y1 + y2) / 2
             
+            # Create background rectangle for distance label
+            text_bg = self.map_canvas.create_rectangle(
+                mid_x - 60, mid_y - 25, mid_x + 60, mid_y, 
+                fill="white", outline="lightgray", tags="location_marker"
+            )
+            
             # Add distance and angle label
             self.map_canvas.create_text(
                 mid_x, mid_y - 10, 
                 text=f"Distance: {distance:.1f} px\nAngle: {angle_degrees:.1f}°", 
-                fill="darkblue", font=("Arial", 8), tags="location_marker",
-                background="white", padx=2, pady=2
+                fill="darkblue", font=("Arial", 8), tags="location_marker"
             )
             
             # Add a legend
@@ -612,6 +617,12 @@ class CombinedLocationVisualization:
         while not self.stop_thread:
             try:
                 if self.serial_port and self.serial_port.is_open and self.serial_port.in_waiting > 0:
+                    # Add this line to read the data from serial port
+                    data = self.serial_port.readline().decode('utf-8').strip()
+                    
+                    # Skip empty lines
+                    if not data:
+                        continue
                     
                     # Try to parse the data as comma-separated values
                     try:
