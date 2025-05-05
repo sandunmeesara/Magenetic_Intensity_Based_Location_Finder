@@ -467,6 +467,15 @@ class CombinedLocationVisualization:
                                              style="Big.TButton")
         self.apply_settings_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
         
+        # Add Template Settings button in the Algorithm Settings frame
+        self.template_settings_button = ttk.Button(
+            self.map_algo_frame, 
+            text="Template Settings", 
+            command=self.open_template_settings,
+            style="Big.TButton"
+        )
+        self.template_settings_button.grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
+        
         # Log frame - NEW ROW spanning all columns for consistent display
         self.log_frame = ttk.LabelFrame(self.bottom_frame, text="System Log")
         self.log_frame.grid(row=1, column=0, columnspan=3, padx=10, pady=10, sticky="nsew")
@@ -926,8 +935,15 @@ class CombinedLocationVisualization:
             # Fall back to print if log_text is not available
             print(f"[{timestamp}] {message}")
     
-    def select_nearest_locations(self, template_size):
+    def select_nearest_locations(self, template_size=None):
         """Select only nearest locations for calculating the Euclidean distance"""
+        # Use the value from the template settings window if available
+        if hasattr(self, 'template_size_var'):
+            template_size = self.template_size_var.get()
+        else:
+            # Use the provided value or default to 5
+            template_size = template_size or 5
+        
         if not self.matched_location:
             return self.ref_data  # Return all data if no matched location
         
@@ -949,6 +965,10 @@ class CombinedLocationVisualization:
         
         # Filter reference data based on selected locations
         filtered_data = self.ref_data[self.ref_data['Location'].isin(selected_locations['Location'])]
+        
+        # Log the template size being used
+        self.log_message(f"Using template size: {template_size} with {len(filtered_data)} locations")
+        
         return filtered_data
     
     def find_closest_location(self, real_time_data, filtered_data):
@@ -1117,14 +1137,16 @@ class CombinedLocationVisualization:
         if hasattr(self, 'map_window') and self.map_window.winfo_exists():
             self.map_window.destroy()
         
-        # No need to close vector_control_window anymore since it's part of the main window
+        # Close template window if it exists
+        if hasattr(self, 'template_window') and self.template_window.winfo_exists():
+            self.template_window.destroy()
         
         self.root.destroy()
     
     def change_map(self, event=None):
         """Handle map selection change"""
         selected_map = self.map_var.get()
-        if selected_map != self.current_map:
+        if (selected_map != self.current_map):
             self.current_map = selected_map
             self.log_message(f"Map changed to: {selected_map}")
             
@@ -1133,7 +1155,7 @@ class CombinedLocationVisualization:
     def change_algorithm(self, event=None):
         """Handle algorithm selection change"""
         selected_algo = self.algo_var.get()
-        if selected_algo != self.current_algorithm:
+        if (selected_algo != self.current_algorithm):
             self.current_algorithm = selected_algo
             self.log_message(f"Algorithm changed to: {selected_algo}")
             
@@ -1192,6 +1214,331 @@ class CombinedLocationVisualization:
         except Exception as e:
             self.log_message(f"Error reloading map: {str(e)}")
             raise
+
+    def open_template_settings(self):
+        """Open a separate window for template size settings"""
+        # Create a new Toplevel window if it doesn't exist or is closed
+        if not hasattr(self, 'template_window') or not self.template_window.winfo_exists():
+            self.template_window = Toplevel(self.root)
+            self.template_window.title("Template Size Settings")
+            self.template_window.geometry("700x500")
+            self.template_window.minsize(600, 400)
+            self.template_window.protocol("WM_DELETE_WINDOW", lambda: self.template_window.withdraw())
+            
+            # Main frame
+            main_frame = ttk.Frame(self.template_window)
+            main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+            
+            # Controls frame at the top
+            controls_frame = ttk.LabelFrame(main_frame, text="Template Size Control")
+            controls_frame.pack(fill=tk.X, padx=5, pady=5)
+            
+            # Create a container for the slider
+            slider_frame = ttk.Frame(controls_frame)
+            slider_frame.pack(fill=tk.X, padx=10, pady=10)
+            
+            # Template size label
+            ttk.Label(slider_frame, text="Template Size:").pack(side=tk.LEFT, padx=5)
+            
+            # Default template size
+            self.template_size_var = tk.IntVar(value=5)
+            
+            # Template size slider
+            template_scale = ttk.Scale(
+                slider_frame,
+                from_=1,
+                to=20,
+                variable=self.template_size_var,
+                orient=tk.HORIZONTAL,
+                length=300,
+                command=self.update_template_preview
+            )
+            template_scale.pack(side=tk.LEFT, padx=10, fill=tk.X, expand=True)
+            
+            # Value display
+            value_label = ttk.Label(slider_frame, textvariable=self.template_size_var, width=3)
+            value_label.pack(side=tk.LEFT, padx=5)
+            
+            # Update the label when scale value changes
+            def update_scale_label(*args):
+                value_label.config(text=str(self.template_size_var.get()))
+            
+            self.template_size_var.trace_add("write", update_scale_label)
+            
+            # Reference location frame
+            ref_frame = ttk.Frame(controls_frame)
+            ref_frame.pack(fill=tk.X, padx=10, pady=10)
+            
+            # Reference location label
+            ttk.Label(ref_frame, text="Reference Location:").pack(side=tk.LEFT, padx=5)
+            
+            # Get all unique location names for dropdown
+            all_locations = sorted(self.distances['Location'].unique())
+            self.ref_location_var = tk.StringVar(value=all_locations[0] if all_locations else "")
+            
+            # Reference location dropdown
+            ref_dropdown = ttk.Combobox(
+                ref_frame,
+                textvariable=self.ref_location_var,
+                values=all_locations,
+                width=20
+            )
+            ref_dropdown.pack(side=tk.LEFT, padx=5)
+            ref_dropdown.bind("<<ComboboxSelected>>", self.update_template_preview)
+            
+            # Apply button
+            apply_btn = ttk.Button(
+                ref_frame,
+                text="Apply & Visualize",
+                command=self.update_template_preview,
+                style="Big.TButton"
+            )
+            apply_btn.pack(side=tk.RIGHT, padx=10)
+            
+            # Results frame with tabbed interface
+            results_notebook = ttk.Notebook(main_frame)
+            results_notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+            
+            # Tab 1: Text display of selected locations
+            text_frame = ttk.Frame(results_notebook)
+            results_notebook.add(text_frame, text="Selected Locations")
+            
+            # Add text widget for showing selected locations
+            self.template_results_text = tk.Text(text_frame, height=15, width=60)
+            text_scroll = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=self.template_results_text.yview)
+            self.template_results_text.configure(yscrollcommand=text_scroll.set)
+            
+            self.template_results_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
+            text_scroll.pack(side=tk.RIGHT, fill=tk.Y, padx=0, pady=5)
+            
+            # Tab 2: Map preview of template area
+            map_frame = ttk.Frame(results_notebook)
+            results_notebook.add(map_frame, text="Map Preview")
+            
+            # Create canvas for map preview
+            self.template_canvas = tk.Canvas(map_frame, bg='white')
+            self.template_canvas.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+            
+            # Initial update
+            self.update_template_preview()
+        else:
+            # Just show the window if it already exists
+            self.template_window.deiconify()
+            self.template_window.lift()
+
+    def update_template_preview(self, *args):
+        """Update the template preview based on selected size and reference location"""
+        try:
+            # Get the current template size and reference location
+            template_size = self.template_size_var.get()
+            ref_location = self.ref_location_var.get()
+            
+            # Clear previous results
+            self.template_results_text.delete('1.0', tk.END)
+            
+            # Header information
+            self.template_results_text.insert(tk.END, f"Template Size: {template_size}\n")
+            self.template_results_text.insert(tk.END, f"Reference Location: {ref_location}\n\n")
+            
+            # Exit if no reference location is provided
+            if not ref_location or ref_location == "":
+                self.template_results_text.insert(tk.END, "Please select a reference location.")
+                return
+            
+            # Find the reference location in the distances DataFrame
+            ref_data = self.distances[self.distances['Location'] == ref_location]
+            if ref_data.empty:
+                self.template_results_text.insert(tk.END, f"Reference location '{ref_location}' not found in data.")
+                return
+            
+            # Get reference coordinates
+            ref_x = ref_data.iloc[0]['X']
+            ref_y = ref_data.iloc[0]['Y']
+            
+            # Calculate template bounds
+            min_x = ref_x - template_size
+            max_x = ref_x + template_size
+            min_y = ref_y - template_size
+            max_y = ref_y + template_size
+            
+            # Find locations within the template bounds
+            template_locations = self.distances[
+                (self.distances['X'] >= min_x) & 
+                (self.distances['X'] <= max_x) & 
+                (self.distances['Y'] >= min_y) & 
+                (self.distances['Y'] <= max_y)
+            ]
+            
+            # Show results in text view
+            self.template_results_text.insert(tk.END, f"Number of locations in template: {len(template_locations)}\n")
+            self.template_results_text.insert(tk.END, "Locations included in template:\n\n")
+            
+            # Format and display each location
+            for idx, row in template_locations.iterrows():
+                loc_name = row['Location']
+                x, y = row['X'], row['Y']
+                distance = np.sqrt((x - ref_x)**2 + (y - ref_y)**2)
+                
+                # Format entry with location name and distance
+                entry = f"{loc_name} - Position: ({x}, {y}) - Distance from reference: {distance:.2f}\n"
+                self.template_results_text.insert(tk.END, entry)
+            
+            # Update the map preview
+            self.draw_template_preview(ref_x, ref_y, template_size, template_locations)
+            
+        except Exception as e:
+            self.template_results_text.delete('1.0', tk.END)
+            self.template_results_text.insert(tk.END, f"Error updating template preview: {str(e)}")
+            self.log_message(f"Template preview error: {str(e)}")
+
+    def draw_template_preview(self, ref_x, ref_y, template_size, template_locations):
+        """Draw a preview of the template area on the canvas"""
+        # Clear the canvas
+        self.template_canvas.delete("all")
+        
+        # Get canvas dimensions
+        canvas_width = self.template_canvas.winfo_width()
+        canvas_height = self.template_canvas.winfo_height()
+        
+        # Ensure canvas has size (it might not have been drawn yet)
+        if (canvas_width < 10 or canvas_height < 10):
+            canvas_width = 400
+            canvas_height = 300
+        
+        # Calculate the scale and offset for drawing
+        # Find min/max of locations for scaling
+        all_x = template_locations['X'].tolist()
+        all_y = template_locations['Y'].tolist()
+        
+        # Add the reference point and template bounds
+        all_x.extend([ref_x - template_size - 5, ref_x + template_size + 5])
+        all_y.extend([ref_y - template_size - 5, ref_y + template_size + 5])
+        
+        min_x, max_x = min(all_x), max(all_x)
+        min_y, max_y = min(all_y), max(all_y)
+        
+        # Calculate scaling factors
+        padding = 30  # Padding around the edges
+        width_scale = (canvas_width - 2 * padding) / (max_x - min_x) if max_x > min_x else 1
+        height_scale = (canvas_height - 2 * padding) / (max_y - min_y) if max_y > min_y else 1
+        scale = min(width_scale, height_scale)
+        
+        # Function to convert data coordinates to canvas coordinates
+        def to_canvas(x, y):
+            cx = padding + (x - min_x) * scale
+            cy = padding + (y - min_y) * scale
+            return cx, cy
+        
+        # Draw template boundary (rectangle)
+        template_x1, template_y1 = to_canvas(ref_x - template_size, ref_y - template_size)
+        template_x2, template_y2 = to_canvas(ref_x + template_size, ref_y + template_size)
+        self.template_canvas.create_rectangle(
+            template_x1, template_y1, template_x2, template_y2,
+            outline="blue", width=2, dash=(4, 2)
+        )
+        
+        # Draw all locations in the data set with faded appearance
+        for idx, row in self.distances.iterrows():
+            x, y = row['X'], row['Y']
+            cx, cy = to_canvas(x, y)
+            
+            # Different color and size for points inside vs outside template
+            if (x >= ref_x - template_size and x <= ref_x + template_size and
+                y >= ref_y - template_size and y <= ref_y + template_size):
+                # Inside template - highlight
+                self.template_canvas.create_oval(
+                    cx-5, cy-5, cx+5, cy+5,
+                    fill="green", outline="black"
+                )
+            else:
+                # Outside template - faded
+                self.template_canvas.create_oval(
+                    cx-3, cy-3, cx+3, cy+3,
+                    fill="gray", outline="gray"
+                )
+        
+        # Draw reference location (highlighted with star)
+        ref_cx, ref_cy = to_canvas(ref_x, ref_y)
+        
+        # Draw a star for reference point
+        star_size = 10
+        points = [
+            ref_cx, ref_cy - star_size,
+            ref_cx + star_size/4, ref_cy - star_size/4,
+            ref_cx + star_size, ref_cy - star_size/4,
+            ref_cx + star_size/2, ref_cy + star_size/4,
+            ref_cx + star_size*3/4, ref_cy + star_size,
+            ref_cx, ref_cy + star_size*2/3,
+            ref_cx - star_size*3/4, ref_cy + star_size,
+            ref_cx - star_size/2, ref_cy + star_size/4,
+            ref_cx - star_size, ref_cy - star_size/4,
+            ref_cx - star_size/4, ref_cy - star_size/4,
+        ]
+        self.template_canvas.create_polygon(
+            points, fill="red", outline="black"
+        )
+        
+        # Add a legend
+        legend_x = 10
+        legend_y = canvas_height - 80
+        
+        self.template_canvas.create_rectangle(
+            legend_x, legend_y, legend_x+180, legend_y+70,
+            fill="white", outline="black"
+        )
+        
+        self.template_canvas.create_text(
+            legend_x+90, legend_y+10, text="Legend",
+            font=("Arial", 10, "bold")
+        )
+        
+        # Reference location (star)
+        star_points = [
+            legend_x+15, legend_y+25-5,
+            legend_x+15+2, legend_y+25-1,
+            legend_x+15+5, legend_y+25-1,
+            legend_x+15+3, legend_y+25+1,
+            legend_x+15+4, legend_y+25+5,
+            legend_x+15, legend_y+25+3,
+            legend_x+15-4, legend_y+25+5,
+            legend_x+15-3, legend_y+25+1,
+            legend_x+15-5, legend_y+25-1,
+            legend_x+15-2, legend_y+25-1
+        ]
+        self.template_canvas.create_polygon(
+            star_points, fill="red", outline="black"
+        )
+        self.template_canvas.create_text(
+            legend_x+100, legend_y+25, text="Reference Location",
+            anchor=tk.W, font=("Arial", 8)
+        )
+        
+        # Inside template
+        self.template_canvas.create_oval(
+            legend_x+10, legend_y+40, legend_x+20, legend_y+50,
+            fill="green", outline="black"
+        )
+        self.template_canvas.create_text(
+            legend_x+100, legend_y+45, text="Location in Template",
+            anchor=tk.W, font=("Arial", 8)
+        )
+        
+        # Outside template
+        self.template_canvas.create_oval(
+            legend_x+10, legend_y+55, legend_x+20, legend_y+65,
+            fill="gray", outline="gray"
+        )
+        self.template_canvas.create_text(
+            legend_x+100, legend_y+60, text="Location outside Template",
+            anchor=tk.W, font=("Arial", 8)
+        )
+        
+        # Draw template size and count info
+        info_text = f"Template Size: {template_size} | Locations: {len(template_locations)}"
+        self.template_canvas.create_text(
+            canvas_width/2, 15, text=info_text,
+            font=("Arial", 12, "bold"), fill="blue"
+        )
 
 def main():
     root = tk.Tk()
