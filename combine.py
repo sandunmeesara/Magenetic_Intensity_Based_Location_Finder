@@ -17,8 +17,8 @@ class CombinedLocationVisualization:
         self.root.title("Magnetic Vector Visualization & Control")
         
         # Set a fixed minimum size to prevent controls from disappearing
-        self.root.geometry("1000x900")
-        self.root.minsize(1000, 800)
+        self.root.geometry("1200x1000")  # Make it even bigger to fit everything
+        self.root.minsize(1100, 900)     # Increase minimum size
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
         # Configure styles for large buttons
@@ -31,6 +31,11 @@ class CombinedLocationVisualization:
         self.vector = [0, 0, 0]
         self.history = []
         self.max_history = 100
+        
+        # Initialize visualization control variables
+        self.show_history_var = tk.BooleanVar(value=True)
+        self.show_proj_var = tk.BooleanVar(value=True)
+        self.auto_scale_var = tk.BooleanVar(value=True)
         
         # Serial connection parameters
         self.serial_port = None
@@ -196,9 +201,13 @@ class CombinedLocationVisualization:
     
     def setup_vector_panel(self):
         """Set up the 3D vector visualization panel in the main window"""
-        # Create a labeled frame for vector visualization
-        self.vector_frame = ttk.LabelFrame(self.top_frame, text="Magnetic Vector Visualization")
-        self.vector_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        # Use a PanedWindow to create resizable sections
+        paned = ttk.PanedWindow(self.top_frame, orient=tk.VERTICAL)
+        paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Create a labeled frame for vector visualization in the top pane
+        self.vector_frame = ttk.LabelFrame(paned, text="Magnetic Vector Visualization")
+        paned.add(self.vector_frame, weight=3)  # Give more weight to the plot
         
         # Create figure and 3D axis
         self.fig = plt.Figure(figsize=(6, 5), dpi=100)
@@ -226,52 +235,125 @@ class CombinedLocationVisualization:
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         
-        # Create vector information panel
+        # Create a lower pane specifically for controls that will always be visible
+        controls_container = ttk.Frame(paned)
+        paned.add(controls_container, weight=1)  # Give less weight but ensure visibility
+        
+        # More professional visualization options panel with less color
+        viz_options = ttk.LabelFrame(controls_container, text="Visualization Controls")
+        viz_options.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Container for checkboxes with neutral background
+        checkbox_frame = ttk.Frame(viz_options)
+        checkbox_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Use fixed height but with professional colors
+        checkbox_frame.configure(height=150, width=800)
+        checkbox_frame.pack_propagate(False)  # Prevent shrinking
+        
+        # History trace checkbox with standard styling
+        history_check = ttk.Checkbutton(
+            checkbox_frame, 
+            text="Show History Trace", 
+            variable=self.show_history_var,
+            command=self.update_vector_plot
+        )
+        history_check.place(x=20, y=10)
+        
+        # XYZ projections checkbox
+        proj_check = ttk.Checkbutton(
+            checkbox_frame, 
+            text="Show XYZ Projections", 
+            variable=self.show_proj_var,
+            command=self.update_vector_plot
+        )
+        proj_check.place(x=250, y=10)
+        
+        # Auto-scale checkbox
+        scale_check = ttk.Checkbutton(
+            checkbox_frame, 
+            text="Auto-adjust Scale", 
+            variable=self.auto_scale_var,
+            command=self.update_vector_plot
+        )
+        scale_check.place(x=480, y=10)
+        
+        # Add refresh button with standard style
+        refresh_btn = ttk.Button(
+            checkbox_frame, 
+            text="Refresh Plot", 
+            command=self.update_vector_plot
+        )
+        refresh_btn.place(x=650, y=10)
+        
+        # History length slider with standard style
+        slider_label = ttk.Label(
+            checkbox_frame,
+            text="History Length:"
+        )
+        slider_label.place(x=20, y=60)
+        
+        # Use a standard Scale
+        self.history_length_var = tk.IntVar(value=self.max_history)
+        history_scale = ttk.Scale(
+            checkbox_frame, 
+            from_=10, 
+            to=200, 
+            orient=tk.HORIZONTAL,
+            variable=self.history_length_var, 
+            command=self.update_history_length,
+            length=500
+        )
+        history_scale.place(x=170, y=50)
+        
+        # Value display with standard styling
+        value_frame = ttk.Frame(checkbox_frame)
+        value_frame.place(x=680, y=60)
+        
+        value_label = ttk.Label(
+            value_frame, 
+            textvariable=self.history_length_var
+        )
+        value_label.pack()
+        
+        # Vector information panel below the controls
         self.vector_info_frame = ttk.LabelFrame(self.top_frame, text="Vector Information")
         self.vector_info_frame.pack(fill=tk.X, padx=5, pady=5)
         
         # Grid for vector components
-        self.vector_grid = ttk.Frame(self.vector_info_frame)
-        self.vector_grid.pack(fill=tk.X, padx=5, pady=5)
+        grid_frame = ttk.Frame(self.vector_info_frame)
+        grid_frame.pack(fill=tk.X, padx=10, pady=10)
         
         # X component display
-        ttk.Label(self.vector_grid, text="X:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        ttk.Label(grid_frame, text="X:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
         self.x_var = tk.StringVar(value="0.00")
-        ttk.Label(self.vector_grid, textvariable=self.x_var).grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
+        ttk.Label(grid_frame, textvariable=self.x_var).grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
         
         # Y component display
-        ttk.Label(self.vector_grid, text="Y:").grid(row=0, column=2, padx=5, pady=5, sticky=tk.W)
+        ttk.Label(grid_frame, text="Y:").grid(row=0, column=2, padx=5, pady=5, sticky=tk.W)
         self.y_var = tk.StringVar(value="0.00")
-        ttk.Label(self.vector_grid, textvariable=self.y_var).grid(row=0, column=3, padx=5, pady=5, sticky=tk.W)
+        ttk.Label(grid_frame, textvariable=self.y_var).grid(row=0, column=3, padx=5, pady=5, sticky=tk.W)
         
         # Z component display
-        ttk.Label(self.vector_grid, text="Z:").grid(row=0, column=4, padx=5, pady=5, sticky=tk.W)
+        ttk.Label(grid_frame, text="Z:").grid(row=0, column=4, padx=5, pady=5, sticky=tk.W)
         self.z_var = tk.StringVar(value="0.00")
-        ttk.Label(self.vector_grid, textvariable=self.z_var).grid(row=0, column=5, padx=5, pady=5, sticky=tk.W)
+        ttk.Label(grid_frame, textvariable=self.z_var).grid(row=0, column=5, padx=5, pady=5, sticky=tk.W)
         
         # Magnitude display
-        ttk.Label(self.vector_grid, text="Magnitude:").grid(row=0, column=6, padx=5, pady=5, sticky=tk.W)
+        ttk.Label(grid_frame, text="Magnitude:").grid(row=0, column=6, padx=5, pady=5, sticky=tk.W)
         self.mag_var = tk.StringVar(value="0.00")
-        ttk.Label(self.vector_grid, textvariable=self.mag_var).grid(row=0, column=7, padx=5, pady=5, sticky=tk.W)
+        ttk.Label(grid_frame, textvariable=self.mag_var).grid(row=0, column=7, padx=5, pady=5, sticky=tk.W)
+    
+    def update_history_length(self, *args):
+        """Update the maximum history length for vector visualization"""
+        self.max_history = self.history_length_var.get()
         
-        # Visualization options
-        self.viz_options_frame = ttk.Frame(self.vector_info_frame)
-        self.viz_options_frame.pack(fill=tk.X, padx=5, pady=5)
+        # Truncate history if needed
+        if len(self.history) > self.max_history:
+            self.history = self.history[-self.max_history:]
         
-        # Show history checkbox
-        self.show_history_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(self.viz_options_frame, text="Show History", variable=self.show_history_var, 
-                        command=self.update_vector_plot).pack(side=tk.LEFT, padx=5, pady=5)
-        
-        # Show projections checkbox
-        self.show_proj_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(self.viz_options_frame, text="Show Projections", variable=self.show_proj_var, 
-                        command=self.update_vector_plot).pack(side=tk.LEFT, padx=5, pady=5)
-        
-        # Auto-adjust scale checkbox
-        self.auto_scale_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(self.viz_options_frame, text="Auto-adjust Scale", variable=self.auto_scale_var, 
-                        command=self.update_vector_plot).pack(side=tk.LEFT, padx=5, pady=5)
+        self.log_message(f"History length set to: {self.max_history}")
+        self.update_vector_plot()
     
     def setup_control_panel(self):
         """Set up the bottom control panel in the main window with guaranteed visibility"""
@@ -842,19 +924,6 @@ class CombinedLocationVisualization:
             
             # Add a legend
             legend_x = 10
-            legend_y = self.map_image.height - 60
-            
-            self.map_canvas.create_rectangle(
-                legend_x, legend_y, legend_x+120, legend_y+50, 
-                fill="white", outline="black", tags="all_locations"
-            )
-            
-            self.map_canvas.create_text(
-                legend_x+60, legend_y+10, text="Legend", 
-                font=("Arial", 10, "bold"), tags="all_locations"
-            )
-            
-            # Legend items
             self.map_canvas.create_oval(legend_x+10, legend_y+25, legend_x+20, legend_y+35, 
                                        fill="orange", outline="black", tags="all_locations")
             self.map_canvas.create_text(legend_x+70, legend_y+30, text="Location point", 
@@ -920,7 +989,9 @@ class CombinedLocationVisualization:
         # Close map window if it exists
         if hasattr(self, 'map_window') and self.map_window.winfo_exists():
             self.map_window.destroy()
-            
+        
+        # No need to close vector_control_window anymore since it's part of the main window
+        
         self.root.destroy()
 
 def main():
