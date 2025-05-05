@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import os  # Add this to your imports at the top
 
 class CombinedLocationVisualization:
     def __init__(self, root):
@@ -80,6 +81,17 @@ class CombinedLocationVisualization:
         
         # Force the window to update
         self.root.update_idletasks()
+        
+        # Add these new variables for map and algorithm selection
+        self.map_paths = {
+            "Default Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Map_Marker/map.png",
+            "Blueprint Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Map_Marker/map_blueprint.png",
+            "Satellite Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Map_Marker/map_satellite.png",
+            "Schematic Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Map_Marker/map_schematic.png"
+        }
+        
+        self.current_map = "Default Map"
+        self.current_algorithm = "Euclidean Distance"
     
     def create_map_window(self):
         """Create a separate window for the map visualization"""
@@ -364,9 +376,10 @@ class CombinedLocationVisualization:
         # Make the panel stand out with strong border
         self.bottom_frame.configure(borderwidth=3, relief="raised")
         
-        # Use grid layout manager instead of pack for more precise control
+        # Use grid layout manager with 3 columns instead of 2
         self.bottom_frame.columnconfigure(0, weight=1)
         self.bottom_frame.columnconfigure(1, weight=1)
+        self.bottom_frame.columnconfigure(2, weight=1)  # New column for additional controls
         
         # Serial connection frame - position on the left
         self.conn_frame = ttk.LabelFrame(self.bottom_frame, text="Serial Connection")
@@ -385,14 +398,14 @@ class CombinedLocationVisualization:
         self.baud_combo = ttk.Combobox(self.conn_frame, width=8, textvariable=self.baud_var, values=baud_options)
         self.baud_combo.grid(row=1, column=1, padx=5, pady=5)
         
-        # Connect/Disconnect button - MAKE VISIBLY LARGER
+        # Connect/Disconnect button
         style = ttk.Style()
         style.configure("Big.TButton", font=('TkDefaultFont', 11, 'bold'), padding=5)
         self.conn_button = ttk.Button(self.conn_frame, text="Connect", command=self.toggle_connection,
                                      style="Big.TButton")
         self.conn_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
         
-        # Location settings frame - position on the right
+        # Location settings frame - position in the middle
         self.location_frame = ttk.LabelFrame(self.bottom_frame, text="Location Settings")
         self.location_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
         
@@ -412,15 +425,51 @@ class CombinedLocationVisualization:
                                         font=('TkDefaultFont', 10))
         self.target_loc_entry.grid(row=1, column=1, padx=5, pady=5)
         
-        # Set locations button - MAKE VISIBLY LARGER
+        # Set locations button
         self.set_locations_button = ttk.Button(self.location_frame, text="Set Locations", 
                                              command=self.set_locations,
                                              style="Big.TButton")
         self.set_locations_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
         
-        # Log frame - NEW ROW spanning both columns for consistent display
+        # NEW: Map and Algorithm Settings frame - position on the right
+        self.map_algo_frame = ttk.LabelFrame(self.bottom_frame, text="Map & Algorithm Settings")
+        self.map_algo_frame.grid(row=0, column=2, padx=10, pady=10, sticky="nsew")
+        
+        # Map selection
+        ttk.Label(self.map_algo_frame, text="Select Map:").grid(
+            row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        
+        # Map options
+        self.map_var = tk.StringVar(value="Default Map")
+        self.map_options = ["Default Map", "Blueprint Map", "Satellite Map", "Schematic Map"]
+        self.map_combo = ttk.Combobox(self.map_algo_frame, width=15, 
+                                   textvariable=self.map_var, 
+                                   values=self.map_options)
+        self.map_combo.grid(row=0, column=1, padx=5, pady=5)
+        self.map_combo.bind("<<ComboboxSelected>>", self.change_map)
+        
+        # Algorithm selection
+        ttk.Label(self.map_algo_frame, text="Location Algorithm:").grid(
+            row=1, column=0, padx=5, pady=5, sticky=tk.W)
+        
+        # Algorithm options
+        self.algo_var = tk.StringVar(value="Euclidean Distance")
+        self.algo_options = ["Euclidean Distance", "Manhattan Distance", "Weighted Average", "KNN (K=3)"]
+        self.algo_combo = ttk.Combobox(self.map_algo_frame, width=15, 
+                                    textvariable=self.algo_var, 
+                                    values=self.algo_options)
+        self.algo_combo.grid(row=1, column=1, padx=5, pady=5)
+        self.algo_combo.bind("<<ComboboxSelected>>", self.change_algorithm)
+        
+        # Apply settings button
+        self.apply_settings_button = ttk.Button(self.map_algo_frame, text="Apply Settings", 
+                                             command=self.apply_map_algo_settings,
+                                             style="Big.TButton")
+        self.apply_settings_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
+        
+        # Log frame - NEW ROW spanning all columns for consistent display
         self.log_frame = ttk.LabelFrame(self.bottom_frame, text="System Log")
-        self.log_frame.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+        self.log_frame.grid(row=1, column=0, columnspan=3, padx=10, pady=10, sticky="nsew")
         
         # Configure row weights to ensure log frame gets proper space
         self.bottom_frame.rowconfigure(0, weight=0)  # Control row doesn't expand
@@ -438,7 +487,8 @@ class CombinedLocationVisualization:
         self.log_message("Application started. Please follow these steps:")
         self.log_message("1. Connect to the serial port")
         self.log_message("2. Enter starting and target location numbers")
-        self.log_message("3. Click 'Set Locations' to initialize navigation")
+        self.log_message("3. Select Map and Algorithm if needed")
+        self.log_message("4. Click 'Set Locations' to initialize navigation")
     
     def draw_coordinate_axes(self):
         """Draw the coordinate axes in the 3D plot"""
@@ -695,20 +745,65 @@ class CombinedLocationVisualization:
             messagebox.showerror("Map Error", f"Failed to update map: {str(e)}")
     
     def read_serial_data(self):
-        """Read data from the serial port in a separate thread"""
+        """Read data from the serial port in a separate thread with improved error handling"""
         while not self.stop_thread:
             try:
                 if self.serial_port and self.serial_port.is_open and self.serial_port.in_waiting > 0:
-                    # Add this line to read the data from serial port
+                    # Read data from serial port
                     data = self.serial_port.readline().decode('utf-8').strip()
                     
                     # Skip empty lines
                     if not data:
                         continue
                     
+                    # Log raw data for debugging (optional - uncomment if needed)
+                    # self.log_message(f"Raw data: {data}")
+                    
                     # Try to parse the data as comma-separated values
                     try:
-                        values = [float(val) for val in data.split(',') if val.strip()]
+                        # Clean up the data: replace multiple commas with a single comma
+                        # and ensure proper separation of numbers
+                        cleaned_data = data
+                        
+                        # Handle case where values are run together without commas (e.g., '50.050.09')
+                        # This regex looks for patterns like digit.digit.digit and adds a comma
+                        import re
+                        cleaned_data = re.sub(r'(\d+\.\d+)(\d+\.\d+)', r'\1,\2', cleaned_data)
+                        
+                        # Split by comma and filter out any empty parts
+                        parts = [part.strip() for part in cleaned_data.split(',') if part.strip()]
+                        
+                        # Extract valid float values
+                        values = []
+                        for part in parts:
+                            try:
+                                # Try to convert to float
+                                values.append(float(part))
+                            except ValueError:
+                                # If part contains multiple numbers without separator, try to split
+                                if '.' in part:
+                                    # Count number of decimal points
+                                    decimal_count = part.count('.')
+                                    if decimal_count > 1:
+                                        # This might be multiple values stuck together
+                                        # Split at each decimal point after the first
+                                        decimal_positions = [pos for pos, char in enumerate(part) if char == '.']
+                                        
+                                        # Process first number (up to the second decimal)
+                                        if decimal_positions[0] > 0:
+                                            first_num_end = decimal_positions[1]
+                                            try:
+                                                first_value = float(part[:first_num_end])
+                                                values.append(first_value)
+                                            except ValueError:
+                                                pass
+                                        
+                                        # Process second number (from the second decimal)
+                                        try:
+                                            second_value = float(part[decimal_positions[1]-1:])
+                                            values.append(second_value)
+                                        except ValueError:
+                                            pass
                         
                         # Check if we have enough data to process
                         if len(values) >= 3:  # We need at least 3 values (M_X, M_Y, M_Z)
@@ -731,34 +826,21 @@ class CombinedLocationVisualization:
                             
                             # Process location data if we have set locations
                             if hasattr(self, 'Starting_location') and hasattr(self, 'Target_location'):
-                                # Select only nearest locations for distance calculation
-                                template_size = 1
-                                filtered_data = self.select_nearest_locations(template_size)
-                                
-                                # Find the closest location
+                                # Find the closest matching location
+                                filtered_data = self.select_nearest_locations(template_size=5)
                                 closest_location = self.find_closest_location(self.vector, filtered_data)
-                                self.matched_location = closest_location
                                 
-                                # Check if the robot has reached the target location
-                                target_location_name = self.Target_location.iloc[0]['Location']
-                                
-                                if closest_location == target_location_name:
-                                    self.log_message(f"Robot has reached the target location: {closest_location}")
-                                    # Send data using serial port
-                                    if self.serial_port and self.serial_port.is_open:
-                                        command_to_send = "5"
-                                        self.serial_port.write(command_to_send.encode('utf-8'))
-                                        self.log_message(f"Sent command: {command_to_send}")
-                                        self.serial_port.write("\n".encode('utf-8'))
-                                
-                                # Check if the location has changed
+                                # Update the robot location on the map
                                 if closest_location != self.previous_location:
-                                    self.log_message(f"The robot is at: {closest_location}")
-                                    self.update_robot_position(closest_location)
                                     self.previous_location = closest_location
-                            
+                                    self.update_robot_position(closest_location)
+                    
                     except ValueError as e:
-                        self.log_message(f"Error parsing data: {str(e)}")
+                        self.log_message(f"Error parsing data: {str(e)} in '{data}'")
+                        # Continue processing even if one data point fails
+                    
+                    except Exception as e:
+                        self.log_message(f"Unexpected error processing data: {str(e)}")
                         
             except Exception as e:
                 self.log_message(f"Serial error: {str(e)}")
@@ -870,18 +952,63 @@ class CombinedLocationVisualization:
         return filtered_data
     
     def find_closest_location(self, real_time_data, filtered_data):
-        """Compute Euclidean distance to find closest location"""
+        """Compute distance to find closest location using the selected algorithm"""
         distances = []
+        
         for index, row in filtered_data.iterrows():
-            distance = np.sqrt(
-                (real_time_data[0] - row['M_X'])**2 +
-                (real_time_data[1] - row['M_Y'])**2 +
-                (real_time_data[2] - row['M_Z'])**2
-            )
+            # Get reference data
+            ref_data = [row['M_X'], row['M_Y'], row['M_Z']]
+            
+            # Calculate distance based on selected algorithm
+            if self.current_algorithm == "Euclidean Distance":
+                # Standard Euclidean distance
+                distance = np.sqrt(
+                    (real_time_data[0] - ref_data[0])**2 +
+                    (real_time_data[1] - ref_data[1])**2 +
+                    (real_time_data[2] - ref_data[2])**2
+                )
+            
+            elif self.current_algorithm == "Manhattan Distance":
+                # Manhattan (L1) distance
+                distance = (
+                    abs(real_time_data[0] - ref_data[0]) +
+                    abs(real_time_data[1] - ref_data[1]) +
+                    abs(real_time_data[2] - ref_data[2])
+                )
+            
+            elif self.current_algorithm == "Weighted Average":
+                # Weighted components (emphasize X and Y over Z)
+                distance = np.sqrt(
+                    1.5 * (real_time_data[0] - ref_data[0])**2 +
+                    1.5 * (real_time_data[1] - ref_data[1])**2 +
+                    0.7 * (real_time_data[2] - ref_data[2])**2
+                )
+            
+            elif self.current_algorithm == "KNN (K=3)":
+                # This will just calculate distances normally
+                # The actual KNN logic happens after all distances are calculated
+                distance = np.sqrt(
+                    (real_time_data[0] - ref_data[0])**2 +
+                    (real_time_data[1] - ref_data[1])**2 +
+                    (real_time_data[2] - ref_data[2])**2
+                )
+            
             distances.append((row['Location'], distance))
         
         # Sort by smallest distance
         distances.sort(key=lambda x: x[1])
+        
+        # For KNN, return the most common location among the k=3 nearest neighbors
+        if self.current_algorithm == "KNN (K=3)" and len(distances) >= 3:
+            # Get the 3 closest locations
+            closest_three = [loc for loc, _ in distances[:3]]
+            # Count occurrences of each location
+            from collections import Counter
+            location_counts = Counter(closest_three)
+            # Return the most common location
+            return location_counts.most_common(1)[0][0]
+        
+        # For other algorithms, just return the closest location
         return distances[0][0]  # Return the closest location name
     
     def show_all_locations(self):
@@ -993,6 +1120,78 @@ class CombinedLocationVisualization:
         # No need to close vector_control_window anymore since it's part of the main window
         
         self.root.destroy()
+    
+    def change_map(self, event=None):
+        """Handle map selection change"""
+        selected_map = self.map_var.get()
+        if selected_map != self.current_map:
+            self.current_map = selected_map
+            self.log_message(f"Map changed to: {selected_map}")
+            
+            # The actual map will be loaded when Apply is clicked
+            
+    def change_algorithm(self, event=None):
+        """Handle algorithm selection change"""
+        selected_algo = self.algo_var.get()
+        if selected_algo != self.current_algorithm:
+            self.current_algorithm = selected_algo
+            self.log_message(f"Algorithm changed to: {selected_algo}")
+            
+            # The algorithm will be applied when Apply is clicked
+    
+    def apply_map_algo_settings(self):
+        """Apply the selected map and algorithm settings"""
+        try:
+            # Apply map change
+            map_path = self.map_paths.get(self.current_map)
+            if not map_path or not os.path.exists(map_path):
+                self.log_message(f"Warning: Map file not found at {map_path}")
+                messagebox.showwarning("Map Not Found", 
+                                      f"The selected map file was not found.\nUsing the current map instead.")
+            else:
+                # Reload the map in the map window
+                self.reload_map(map_path)
+                self.log_message(f"Successfully applied map: {self.current_map}")
+            
+            # Apply algorithm change - the algorithm will be used in find_closest_location
+            self.log_message(f"Successfully applied algorithm: {self.current_algorithm}")
+            
+            # If locations are set, update the map
+            if hasattr(self, 'Starting_location') and hasattr(self, 'Target_location'):
+                self.update_map(self.Starting_location, self.Target_location)
+                
+        except Exception as e:
+            self.log_message(f"Error applying settings: {str(e)}")
+            messagebox.showerror("Settings Error", f"Failed to apply settings: {str(e)}")
+    
+    def reload_map(self, map_path):
+        """Reload the map with a new image"""
+        try:
+            # Create new map image
+            self.map_image = Image.open(map_path)
+            original_width, original_height = self.map_image.width, self.map_image.height
+            
+            # Update the PhotoImage
+            self.map_photo = ImageTk.PhotoImage(self.map_image)
+            
+            # Clear the canvas
+            self.map_canvas.delete("all")
+            
+            # Add the new image
+            self.map_canvas.create_image(0, 0, anchor=tk.NW, image=self.map_photo)
+            
+            # Update the scroll region
+            self.map_canvas.config(scrollregion=(0, 0, original_width, original_height))
+            
+            # If we had markers before, redraw them
+            if hasattr(self, 'Starting_location') and hasattr(self, 'Target_location'):
+                self.update_map(self.Starting_location, self.Target_location)
+                
+            self.log_message(f"Map reloaded with dimensions: {original_width}x{original_height}")
+            
+        except Exception as e:
+            self.log_message(f"Error reloading map: {str(e)}")
+            raise
 
 def main():
     root = tk.Tk()
