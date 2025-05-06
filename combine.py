@@ -236,16 +236,20 @@ class CombinedLocationVisualization:
         
         # Configure row weights to give more space to the plot
         vector_main_frame.rowconfigure(0, weight=4)  # Vector visualization (larger)
-        vector_main_frame.rowconfigure(1, weight=1)  # Vector controls (smaller)
-        vector_main_frame.rowconfigure(2, weight=0)  # Vector info (fixed size)
+        vector_main_frame.rowconfigure(1, weight=0, minsize=50)  # Vector controls (fixed size)
+        vector_main_frame.rowconfigure(2, weight=0, minsize=40)  # Vector info (fixed size)
         vector_main_frame.columnconfigure(0, weight=1)  # Full width
         
         # Create a labeled frame for vector visualization
         self.vector_frame = ttk.LabelFrame(vector_main_frame, text="Magnetic Vector Visualization")
         self.vector_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         
-        # Create figure and 3D axis
-        self.fig = plt.Figure(figsize=(6, 5), dpi=100)
+        # Create container frame for the figure to ensure it maintains size
+        figure_container = ttk.Frame(self.vector_frame)
+        figure_container.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+        
+        # Create figure and 3D axis with DPI that scales better
+        self.fig = plt.Figure(figsize=(5, 4), dpi=100)
         self.ax = self.fig.add_subplot(111, projection='3d')
         
         # Set axis labels and title
@@ -265,22 +269,22 @@ class CombinedLocationVisualization:
         # Draw coordinate axes
         self.draw_coordinate_axes()
         
-        # Embed plot in tkinter window
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.vector_frame)
+        # Embed plot in tkinter window with proper expansion
+        self.canvas = FigureCanvasTkAgg(self.fig, master=figure_container)
         self.canvas.draw()
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas_widget = self.canvas.get_tk_widget()
+        canvas_widget.pack(fill=tk.BOTH, expand=True)
+        
+        # Add tight layout to make better use of the space
+        self.fig.tight_layout()
         
         # Create control panel below the visualization
         viz_options = ttk.LabelFrame(vector_main_frame, text="Visualization Controls")
-        viz_options.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+        viz_options.grid(row=1, column=0, sticky="ew", padx=5, pady=5)
         
         # Container for checkboxes with neutral background
         checkbox_frame = ttk.Frame(viz_options)
-        checkbox_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        # Use fixed height but with professional colors
-        checkbox_frame.configure(height=100, width=800)
-        checkbox_frame.pack_propagate(False)  # Prevent shrinking
+        checkbox_frame.pack(fill=tk.X, expand=True, padx=10, pady=10)
         
         # History trace checkbox with standard styling
         history_check = ttk.Checkbutton(
@@ -289,7 +293,7 @@ class CombinedLocationVisualization:
             variable=self.show_history_var,
             command=self.update_vector_plot
         )
-        history_check.place(x=20, y=10)
+        history_check.pack(side=tk.LEFT, padx=10)
         
         # XYZ projections checkbox
         proj_check = ttk.Checkbutton(
@@ -298,7 +302,7 @@ class CombinedLocationVisualization:
             variable=self.show_proj_var,
             command=self.update_vector_plot
         )
-        proj_check.place(x=250, y=10)
+        proj_check.pack(side=tk.LEFT, padx=10)
         
         # Auto-scale checkbox
         scale_check = ttk.Checkbutton(
@@ -307,7 +311,7 @@ class CombinedLocationVisualization:
             variable=self.auto_scale_var,
             command=self.update_vector_plot
         )
-        scale_check.place(x=480, y=10)
+        scale_check.pack(side=tk.LEFT, padx=10)
         
         # Add refresh button with standard style
         refresh_btn = ttk.Button(
@@ -315,37 +319,7 @@ class CombinedLocationVisualization:
             text="Refresh Plot", 
             command=self.update_vector_plot
         )
-        refresh_btn.place(x=650, y=10)
-        
-        # History length slider with standard style
-        slider_label = ttk.Label(
-            checkbox_frame,
-            text="History Length:"
-        )
-        slider_label.place(x=20, y=60)
-        
-        # Use a standard Scale
-        self.history_length_var = tk.IntVar(value=self.max_history)
-        history_scale = ttk.Scale(
-            checkbox_frame, 
-            from_=10, 
-            to=200, 
-            orient=tk.HORIZONTAL,
-            variable=self.history_length_var, 
-            command=self.update_history_length,
-            length=500
-        )
-        history_scale.place(x=170, y=50)
-        
-        # Value display with standard styling
-        value_frame = ttk.Frame(checkbox_frame)
-        value_frame.place(x=680, y=60)
-        
-        value_label = ttk.Label(
-            value_frame, 
-            textvariable=self.history_length_var
-        )
-        value_label.pack()
+        refresh_btn.pack(side=tk.RIGHT, padx=10)
         
         # Vector information panel below the controls
         self.vector_info_frame = ttk.LabelFrame(vector_main_frame, text="Vector Information")
@@ -374,6 +348,12 @@ class CombinedLocationVisualization:
         ttk.Label(grid_frame, text="Magnitude:").grid(row=0, column=6, padx=5, pady=5, sticky=tk.W)
         self.mag_var = tk.StringVar(value="0.00")
         ttk.Label(grid_frame, textvariable=self.mag_var).grid(row=0, column=7, padx=5, pady=5, sticky=tk.W)
+        
+        # Add toolbar for zooming and panning (optional)
+        from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+        toolbar = NavigationToolbar2Tk(self.canvas, figure_container)
+        toolbar.update()
+        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
     
     def update_history_length(self, *args):
         """Update the maximum history length for vector visualization"""
@@ -1155,6 +1135,9 @@ class CombinedLocationVisualization:
         if self.show_history_var.get() and self.history:
             history_array = np.array(self.history)
             self.ax.plot(history_array[:, 0], history_array[:, 1], history_array[:, 2], 'c-', alpha=0.5)
+        
+        # Apply tight layout to make better use of the space
+        self.fig.tight_layout()
         
         # Redraw the canvas
         self.canvas.draw()
