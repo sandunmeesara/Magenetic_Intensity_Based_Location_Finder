@@ -109,6 +109,8 @@ class CombinedLocationVisualization:
         
         self.current_map = "Default Map"
         self.current_algorithm = "Euclidean Distance"
+        # Initialize particle filter (will be created when needed)
+        self.particle_filter = None
     
     def create_map_window(self):
         """Create a separate window for the map visualization"""
@@ -461,7 +463,7 @@ class CombinedLocationVisualization:
         
         # Algorithm options
         self.algo_var = tk.StringVar(value="Euclidean Distance")
-        self.algo_options = ["Euclidean Distance", "Manhattan Distance", "Weighted Average", "KNN (K=3)"]
+        self.algo_options = ["Euclidean Distance", "Manhattan Distance", "Weighted Average", "KNN (K=3)", "Particle Filter"]
         self.algo_combo = ttk.Combobox(map_algo_tab, width=15, 
                                     textvariable=self.algo_var, 
                                     values=self.algo_options)
@@ -535,6 +537,18 @@ class CombinedLocationVisualization:
             command=self.apply_template_to_main_map
         )
         show_template_btn.grid(row=5, column=0, columnspan=4, padx=5, pady=5, sticky=tk.EW)
+        
+        # Add to the template_tab or create a new tab for particle filter visualization
+        particle_frame = ttk.Frame(template_tab)
+        particle_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Button to visualize particles
+        visualize_particles_btn = ttk.Button(
+            particle_frame,
+            text="Visualize Particles on Map",
+            command=self.visualize_particles
+        )
+        visualize_particles_btn.grid(row=0, column=0, padx=5, pady=5, sticky=tk.EW)
         
         # Initialize the template info display
         self.update_template_info()
@@ -637,7 +651,7 @@ class CombinedLocationVisualization:
         
         # Algorithm options
         self.algo_var = tk.StringVar(value="Euclidean Distance")
-        self.algo_options = ["Euclidean Distance", "Manhattan Distance", "Weighted Average", "KNN (K=3)"]
+        self.algo_options = ["Euclidean Distance", "Manhattan Distance", "Weighted Average", "KNN (K=3)", "Particle Filter"]
         self.algo_combo = ttk.Combobox(map_algo_tab, width=15, 
                                     textvariable=self.algo_var, 
                                     values=self.algo_options)
@@ -711,6 +725,18 @@ class CombinedLocationVisualization:
             command=self.apply_template_to_main_map
         )
         show_template_btn.grid(row=5, column=0, columnspan=4, padx=5, pady=5, sticky=tk.EW)
+        
+        # Add to the template_tab or create a new tab for particle filter visualization
+        particle_frame = ttk.Frame(template_tab)
+        particle_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Button to visualize particles
+        visualize_particles_btn = ttk.Button(
+            particle_frame,
+            text="Visualize Particles on Map",
+            command=self.visualize_particles
+        )
+        visualize_particles_btn.grid(row=0, column=0, padx=5, pady=5, sticky=tk.EW)
         
         # Initialize the template info display
         self.update_template_info()
@@ -1203,6 +1229,25 @@ class CombinedLocationVisualization:
         """Compute distance to find closest location using the selected algorithm"""
         distances = []
         
+        # Special handling for Particle Filter
+        if self.current_algorithm == "Particle Filter":
+            # Initialize particle filter if it doesn't exist or if filtered data has changed
+            if (self.particle_filter is None or 
+                len(filtered_data) != self.last_filtered_data_size):
+                self.particle_filter = ParticleFilter(
+                    filtered_data, 
+                    num_particles=200,  # Adjust based on your needs
+                    sensor_noise=12.0,  # Adjust based on your sensor characteristics
+                    motion_noise=3.0    # Adjust based on expected movement
+                )
+                self.last_filtered_data_size = len(filtered_data)
+                self.log_message(f"Initialized Particle Filter with {len(filtered_data)} locations and 200 particles")
+            
+            # Update particle filter with new measurement
+            closest_location = self.particle_filter.update(real_time_data)
+            return closest_location
+        
+        # Regular distance-based algorithms
         for index, row in filtered_data.iterrows():
             # Get reference data
             ref_data = [row['M_X'], row['M_Y'], row['M_Z']]
@@ -1413,8 +1458,13 @@ class CombinedLocationVisualization:
                 self.reload_map(map_path)
                 self.log_message(f"Successfully applied map: {self.current_map}")
             
-            # Apply algorithm change - the algorithm will be used in find_closest_location
+            # Apply algorithm change
             self.log_message(f"Successfully applied algorithm: {self.current_algorithm}")
+            
+            # Reset particle filter if algorithm changed
+            if self.current_algorithm == "Particle Filter":
+                self.particle_filter = None  # Will be recreated on next data point
+                self.log_message("Particle filter will be initialized with next data point")
             
             # If locations are set, update the map
             if hasattr(self, 'Starting_location') and hasattr(self, 'Target_location'):
@@ -1884,6 +1934,234 @@ class CombinedLocationVisualization:
                 self.template_info_text.delete('1.0', tk.END)
                 self.template_info_text.insert(tk.END, f"Error: {str(e)}")
             self.log_message(f"Template info error: {str(e)}")
+
+    def visualize_particles(self):
+        """Visualize particle distribution on the map"""
+        try:
+            if not hasattr(self, 'particle_filter') or self.particle_filter is None:
+                self.log_message("No particle filter available for visualization")
+                return
+            
+            # Clear previous particle visualization
+            self.map_canvas.delete("particles")
+            
+            # Get particle data
+            particles = self.particle_filter.particles
+            
+            if not particles:
+                self.log_message("No particles to visualize")
+                return
+                
+            # Normalize weights for visualization (to determine point size)
+            max_weight = max(p.get('weight', 0) for p in particles)
+            if max_weight <= 0:
+                max_weight = 1.0
+            
+            # Draw each particle
+            particles_drawn = 0
+            for p in particles:
+                # Get location coordinates
+                loc_name = p['location']
+                loc_coord = self.coordinates[self.coordinates['Location'] == loc_name]
+                
+                if not loc_coord.empty:
+                    x, y = loc_coord.iloc[0]['X'], loc_coord.iloc[0]['Y']
+                    
+                    # Determine size based on weight (1-8 pixels)
+                    weight_ratio = p['weight'] / max_weight
+                    size = 1 + weight_ratio * 7
+                    
+                    # Draw particle
+                    self.map_canvas.create_oval(
+                        x - size, y - size, x + size, y + size,
+                        fill="yellow", outline="orange", tags="particles"
+                    )
+                    particles_drawn += 1
+            
+            # Add particle count info
+            self.map_canvas.create_text(
+                100, 30, 
+                text=f"Particles: {particles_drawn} of {len(particles)}",
+                font=("Arial", 10), fill="black", 
+                tags="particles"
+            )
+            
+            self.log_message(f"Visualized {particles_drawn} particles on the map")
+        except Exception as e:
+            self.log_message(f"Error visualizing particles: {str(e)}")
+
+class ParticleFilter:
+    """Particle filter implementation for magnetic vector-based localization"""
+    
+    def __init__(self, locations_data, num_particles=100, sensor_noise=10.0, motion_noise=2.0):
+        """Initialize the particle filter
+        
+        Args:
+            locations_data: DataFrame with location and magnetic data
+            num_particles: Number of particles to use
+            sensor_noise: Standard deviation of sensor measurement noise
+            motion_noise: Standard deviation of motion model noise
+        """
+        self.locations_data = locations_data
+        self.num_particles = num_particles
+        self.sensor_noise = sensor_noise
+        self.motion_noise = motion_noise
+        
+        # Initialize particles randomly across all possible locations
+        self.particles = []
+        self.weights = []
+        self.reset_particles()
+        
+        # Keep track of history
+        self.location_history = []
+        self.history_length = 5
+        
+    def reset_particles(self):
+        """Reset particles to random distribution"""
+        # Randomly select indices from locations_data with replacement
+        indices = np.random.choice(len(self.locations_data), size=self.num_particles, replace=True)
+        
+        # Create particles based on these random locations
+        self.particles = []
+        for idx in indices:
+            location = self.locations_data.iloc[idx]['Location']
+            magnetic_data = [
+                self.locations_data.iloc[idx]['M_X'],
+                self.locations_data.iloc[idx]['M_Y'],
+                self.locations_data.iloc[idx]['M_Z']
+            ]
+            
+            # Add some noise to initial magnetic values
+            noisy_data = [
+                m + np.random.normal(0, self.sensor_noise) 
+                for m in magnetic_data
+            ]
+            
+            self.particles.append({
+                'location': location,
+                'mag_x': noisy_data[0],
+                'mag_y': noisy_data[1],
+                'mag_z': noisy_data[2],
+                'weight': 1.0
+            })
+        
+        # Initialize weights equally
+        self.weights = [1.0 / self.num_particles] * self.num_particles
+        
+    def update(self, measurement):
+        """Update the particle filter based on a new measurement
+        
+        Args:
+            measurement: List of [x, y, z] magnetic field values
+            
+        Returns:
+            String: Most likely location
+        """
+        # Calculate weights based on the likelihood of the measurement
+        total_weight = 0
+        for i, particle in enumerate(self.particles):
+            # Calculate likelihood of this measurement given the particle
+            # (Gaussian probability density function)
+            likelihood = self._measurement_probability(measurement, particle)
+            
+            # Update particle weight
+            self.particles[i]['weight'] = likelihood
+            self.weights[i] = likelihood
+            total_weight += likelihood
+        
+        # Normalize weights so they sum to 1
+        if total_weight > 0:
+            self.weights = [w / total_weight for w in self.weights]
+            for i in range(len(self.particles)):
+                self.particles[i]['weight'] = self.weights[i]
+        else:
+            # If all weights are zero, reset to uniform
+            self.weights = [1.0 / self.num_particles] * self.num_particles
+            for i in range(len(self.particles)):
+                self.particles[i]['weight'] = self.weights[i]
+        
+        # Resample particles based on their weights
+        self._resample()
+        
+        # Determine the most likely location
+        location_counts = {}
+        for particle in self.particles:
+            loc = particle['location']
+            if loc in location_counts:
+                location_counts[loc] += particle['weight']
+            else:
+                location_counts[loc] = particle['weight']  # Creates new entry with the weight
+        
+        # Find location with highest weight
+        best_location = max(location_counts.items(), key=lambda x: x[1])[0]
+        
+        # Add to history
+        self.location_history.append(best_location)
+        if len(self.location_history) > self.history_length:
+            self.location_history.pop(0)
+        
+        # Return the most common location in history for stability
+        if len(self.location_history) > 0:
+            from collections import Counter
+            return Counter(self.location_history).most_common(1)[0][0]
+        else:
+            return best_location
+    
+    def _measurement_probability(self, measurement, particle):
+        """Calculate how likely the measurement is given the particle state"""
+        # Compute Gaussian probability density for each dimension
+        prob_x = self._gaussian(measurement[0], particle['mag_x'], self.sensor_noise)
+        prob_y = self._gaussian(measurement[1], particle['mag_y'], self.sensor_noise)
+        prob_z = self._gaussian(measurement[2], particle['mag_z'], self.sensor_noise)
+        
+        # Combine probabilities
+        return prob_x * prob_y * prob_z
+    
+    def _gaussian(self, x, mu, sigma):
+        """Calculate the Gaussian probability density function value"""
+        # Handle the case where sigma is too small to avoid division by zero
+        if sigma < 0.0001:
+            sigma = 0.0001
+            
+        # Gaussian PDF formula
+        return (1.0 / (np.sqrt(2.0 * np.pi) * sigma)) * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
+    
+    def _resample(self):
+        """Resample particles based on their weights"""
+        # Create new particles array
+        new_particles = []
+        
+        # Use numpy's random choice with weights
+        if sum(self.weights) > 0:
+            indices = np.random.choice(
+                range(len(self.particles)), 
+                size=self.num_particles, 
+                replace=True, 
+                p=self.weights
+            )
+            
+            # Create new particles based on the selected ones
+            for idx in indices:
+                old_particle = self.particles[idx]
+                
+                # Create new particle with some randomness
+                new_particle = {
+                    'location': old_particle['location'],
+                    'mag_x': old_particle['mag_x'] + np.random.normal(0, self.motion_noise),
+                    'mag_y': old_particle['mag_y'] + np.random.normal(0, self.motion_noise),
+                    'mag_z': old_particle['mag_z'] + np.random.normal(0, self.motion_noise),
+                    'weight': 1.0 / self.num_particles
+                }
+                
+                new_particles.append(new_particle)
+        else:
+            # If all weights are zero, reset the particles
+            self.reset_particles()
+            new_particles = self.particles
+            
+        # Update particles
+        self.particles = new_particles
+        self.weights = [1.0 / self.num_particles] * self.num_particles
 
 def main():
     root = tk.Tk()
