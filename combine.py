@@ -866,13 +866,13 @@ class CombinedLocationVisualization:
             
             # Send command via serial port if connected
             if self.is_connected and self.serial_port and self.serial_port.is_open:
-                # command_to_send = f"t{angle_degrees:.2f}"
-                # self.serial_port.write(command_to_send.encode('utf-8'))
-                # self.log_message(f"Sent command: {command_to_send}")
+                command_to_send = f"t{angle_degrees:.2f}"
+                self.serial_port.write(command_to_send.encode('utf-8'))
+                self.log_message(f"Sent command: {command_to_send}")
                 
-                # # Add 5-second delay between commands
-                # self.log_message("Waiting 10 seconds before sending next command...")
-                # time.sleep(10)
+                # Add 5-second delay between commands
+                self.log_message("Waiting 10 seconds before sending next command...")
+                time.sleep(10)
 
                 command_to_send = "1"
                 self.serial_port.write(command_to_send.encode('utf-8'))
