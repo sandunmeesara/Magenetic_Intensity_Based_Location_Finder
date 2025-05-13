@@ -388,7 +388,7 @@ class CombinedLocationVisualization:
         
         # COM Port selection
         ttk.Label(self.conn_frame, text="COM Port:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
-        self.port_var = tk.StringVar(value="COM10")
+        self.port_var = tk.StringVar(value="COM3")
         self.port_entry = ttk.Entry(self.conn_frame, width=10, textvariable=self.port_var)
         self.port_entry.grid(row=0, column=1, padx=5, pady=5)
         
@@ -578,7 +578,7 @@ class CombinedLocationVisualization:
         
         # COM Port selection
         ttk.Label(self.conn_frame, text="COM Port:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
-        self.port_var = tk.StringVar(value="COM10")
+        self.port_var = tk.StringVar(value="COM3")
         self.port_entry = ttk.Entry(self.conn_frame, width=10, textvariable=self.port_var)
         self.port_entry.grid(row=0, column=1, padx=5, pady=5)
         
@@ -855,22 +855,31 @@ class CombinedLocationVisualization:
             
             # Calculate angle for navigation
             angle_degrees = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
-            angle_degrees = angle_degrees if angle_degrees >= 0 else 360 + angle_degrees
+            # angle_degrees = angle_degrees if angle_degrees >= 0 else 360 + angle_degrees
             self.log_message(f"Angle to turn: {angle_degrees:.2f} degrees")
             
-            # Calculate angle in radians
-            angle_degrees = angle_degrees if angle_degrees >= 0 else 360 + angle_degrees
-            self.log_message(f"Angle to turn: {angle_degrees:.2f} degrees")
+            # # Calculate angle in radians
+            # angle_degrees = angle_degrees if angle_degrees >= 0 else 360 + angle_degrees
+            # self.log_message(f"Angle to turn: {angle_degrees:.2f} degrees")
             
             # Calculate angle in radians
-            angle = np.arctan2(y2 - y1, x2 - x1)
-            angle = angle if angle >= 0 else 2 * np.pi + angle
+            # angle = np.arctan2(y2 - y1, x2 - x1)
+            # angle = angle if angle >= 0 else 2 * np.pi + angle
             
             # Send command via serial port if connected
             if self.is_connected and self.serial_port and self.serial_port.is_open:
-                command_to_send = f"t{angle}"
+                # command_to_send = f"t{angle_degrees:.2f}"
+                # self.serial_port.write(command_to_send.encode('utf-8'))
+                # self.log_message(f"Sent command: {command_to_send}")
+                
+                # # Add 5-second delay between commands
+                # self.log_message("Waiting 10 seconds before sending next command...")
+                # time.sleep(10)
+
+                command_to_send = "1"
                 self.serial_port.write(command_to_send.encode('utf-8'))
                 self.log_message(f"Sent command: {command_to_send}")
+
             else:
                 self.log_message("Serial port not connected. Cannot send command.")
             
@@ -1237,8 +1246,8 @@ class CombinedLocationVisualization:
                 self.particle_filter = ParticleFilter(
                     filtered_data, 
                     num_particles=200,  # Adjust based on your needs
-                    sensor_noise=12.0,  # Adjust based on your sensor characteristics
-                    motion_noise=3.0    # Adjust based on expected movement
+                    sensor_noise=2.0,  # Adjust based on your sensor characteristics
+                    motion_noise=2.0    # Adjust based on expected movement
                 )
                 self.last_filtered_data_size = len(filtered_data)
                 self.log_message(f"Initialized Particle Filter with {len(filtered_data)} locations and 200 particles")
