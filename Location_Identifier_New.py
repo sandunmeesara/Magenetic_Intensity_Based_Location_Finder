@@ -5,7 +5,7 @@ ref_data = pd.read_csv("e:/University/University lectures/4. Final Year/Semester
 # print(distances)
 n = 1
 matched_location = 'data_location_' + str(n)
-template_size = 1
+template_size = 3
 
 matched_location_x = distances[distances['Location'] == matched_location].iloc[0]['X']
 matched_location_y = distances[distances['Location'] == matched_location].iloc[0]['Y']

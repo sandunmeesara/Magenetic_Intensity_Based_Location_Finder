@@ -67,46 +67,61 @@ def read_serial_data():
     global previous_location
     global matched_location
     if ser.in_waiting > 0:
-        real_time_data = ser.readline().decode('utf-8').rstrip()
-        #print(f"Received: {real_time_data}")
+        try:
+            real_time_data = ser.readline().decode('utf-8').rstrip()
+            
+            # Skip empty lines
+            if not real_time_data:
+                root.after(1, read_serial_data)
+                return
+                
+            # Split the data and convert to float
+            try:
+                real_time_data = [float(item) for item in real_time_data.split(',') if item.strip()]
+                
+                # Check if we have enough data to process
+                if len(real_time_data) < 3:  # We need at least 3 values (M_X, M_Y, M_Z)
+                    root.after(1, read_serial_data)
+                    return
+                    
+                # Indices to remove
+                indices_to_remove = [3, 4, 5]  # Example indices to remove
+                # Only remove indices if they exist in the data
+                if len(real_time_data) > max(indices_to_remove):
+                    real_time_data = [item for idx, item in enumerate(real_time_data) if idx not in indices_to_remove]
+                
+                # Select only nearest locations for calculate the Euclidean distance
+                template_size = 1
+                filtered_data = select_nearest_locations(distances, ref_data, template_size, matched_location)
 
-        # Split the data and convert to float
-        real_time_data = [float(item) for item in real_time_data.split(',')]
+                # Find the closest location
+                location = find_closest_location(real_time_data, filtered_data)
+                matched_location = location
 
-        # Indices to remove
-        indices_to_remove = [3, 4, 5]  # Example indices to remove
-        real_time_data = [item for idx, item in enumerate(real_time_data) if idx not in indices_to_remove]
-        #print(type(real_time_data))
-        #print(real_time_data)
-        
-        # Select only nearest locations for calculate the Euclidean distance
-        template_size = 1
-        filtered_data = select_nearest_locations(distances,ref_data,template_size,matched_location)
-        # print(filtered_data)
+                # Extract the location name from the DataFrame
+                target_location_name = Target_location.iloc[0]['Location']
 
-        # Find the closest location
-        location = find_closest_location(real_time_data, filtered_data)
-        matched_location = location
-        # print(f"Closest location: {matched_location}")
-
-        # Extract the location name from the DataFrame
-        target_location_name = Target_location.iloc[0]['Location']
-
-        # Check if the robot has reached the target location
-        if (location == target_location_name):
-            print(f"Robot has reached the target location: {location}")
-            # Send data using serial port
-            command_to_send = "5"
-            ser.write(command_to_send.encode('utf-8'))
-            print(f"Sent: {command_to_send}")
-            ser.write("\n".encode('utf-8'))
-            return
-        
-        # Check if the location has changed
-        if location != previous_location:
-            print(f"The robot is at: {location}")
-            update_robot_position(location)
-            previous_location = location
+                # Check if the robot has reached the target location
+                if (location == target_location_name):
+                    print(f"Robot has reached the target location: {location}")
+                    # Send data using serial port
+                    command_to_send = "5"
+                    ser.write(command_to_send.encode('utf-8'))
+                    print(f"Sent: {command_to_send}")
+                    ser.write("\n".encode('utf-8'))
+                    return
+                
+                # Check if the location has changed
+                if location != previous_location:
+                    print(f"The robot is at: {location}")
+                    update_robot_position(location)
+                    previous_location = location
+            except ValueError as e:
+                print(f"Error parsing data: {e}")
+                print(f"Received data: '{real_time_data}'")
+        except Exception as e:
+            print(f"Error reading serial data: {e}")
+    
     root.after(1, read_serial_data)  # Schedule the function to be called again after 1ms
 
 #----------------------------Functions Section End----------------------------
