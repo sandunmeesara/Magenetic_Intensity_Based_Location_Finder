@@ -102,9 +102,7 @@ class CombinedLocationVisualization:
         # Add these new variables for map and algorithm selection
         self.map_paths = {
             "Default Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Map_Marker/map.png",
-            "Blueprint Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Map_Marker/map_blueprint.png",
-            "Satellite Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Map_Marker/map_satellite.png",
-            "Schematic Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Map_Marker/map_schematic.png"
+            "With Objects Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Map_Marker/map_blueprint.png"
         }
         
         self.current_map = "Default Map"
@@ -450,7 +448,7 @@ class CombinedLocationVisualization:
         
         # Map options
         self.map_var = tk.StringVar(value="Default Map")
-        self.map_options = ["Default Map", "Blueprint Map", "Satellite Map", "Schematic Map"]
+        self.map_options = ["Default Map", "With Objects Map"]
         self.map_combo = ttk.Combobox(map_algo_tab, width=15, 
                                     textvariable=self.map_var, 
                                     values=self.map_options)
@@ -638,7 +636,7 @@ class CombinedLocationVisualization:
         
         # Map options
         self.map_var = tk.StringVar(value="Default Map")
-        self.map_options = ["Default Map", "Blueprint Map", "Satellite Map", "Schematic Map"]
+        self.map_options = ["Default Map", "With Objects Map"]
         self.map_combo = ttk.Combobox(map_algo_tab, width=15, 
                                     textvariable=self.map_var, 
                                     values=self.map_options)
