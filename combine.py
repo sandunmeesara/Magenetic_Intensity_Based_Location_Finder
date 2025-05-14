@@ -143,6 +143,15 @@ class CombinedLocationVisualization:
             self.log_message("Serial port not connected. Cannot send reverse command.")
             messagebox.showwarning("Not Connected", "Please connect to the serial port first.")
 
+    def send_forward_command(self):
+        """Send forward command to the robot"""
+        if self.is_connected and self.serial_port and self.serial_port.is_open:
+            self.serial_port.write(b"1")  # Send forward command
+            self.log_message("Forward command sent to robot.")
+        else:
+            self.log_message("Serial port not connected. Cannot send forward command.")
+            messagebox.showwarning("Not Connected", "Please connect to the serial port first.")
+
     def create_map_window(self):
         """Create a separate window for the map visualization"""
         self.map_window = Toplevel(self.root)
@@ -662,6 +671,14 @@ class CombinedLocationVisualization:
         control_buttons_frame = ttk.Frame(self.robot_control_frame)
         control_buttons_frame.pack(fill=tk.X, padx=5, pady=5)
         
+        # Forward button
+        self.forward_button = ttk.Button(
+            control_buttons_frame,
+            text="FORWARD",
+            command=self.send_forward_command,
+            style="Big.TButton"
+        )
+        self.forward_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
         # Stop button
         self.stop_button = ttk.Button(
             control_buttons_frame,
