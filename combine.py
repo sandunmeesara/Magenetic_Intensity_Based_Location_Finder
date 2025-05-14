@@ -25,6 +25,11 @@ class CombinedLocationVisualization:
         # Configure styles for large buttons
         style = ttk.Style()
         style.configure("Big.TButton", font=('TkDefaultFont', 11, 'bold'), padding=5)
+
+        # Configure styles for buttons
+        style = ttk.Style()
+        style.configure("Big.TButton", font=('TkDefaultFont', 11, 'bold'), padding=5)
+        style.configure("Stop.TButton", font=('TkDefaultFont', 12, 'bold'), padding=5)
         
         # Initialize global variables
         self.matched_location = ''
@@ -120,6 +125,24 @@ class CombinedLocationVisualization:
         # Initialize particle filter (will be created when needed)
         self.particle_filter = None
     
+    def send_stop_command(self):
+        """Send stop command to the robot"""
+        if self.is_connected and self.serial_port and self.serial_port.is_open:
+            self.serial_port.write(b"5")  # Send stop command
+            self.log_message("Stop command sent to robot.")
+        else:
+            self.log_message("Serial port not connected. Cannot send stop command.")
+            messagebox.showwarning("Not Connected", "Please connect to the serial port first.")
+
+    def send_reverse_command(self):
+        """Send reverse command to the robot"""
+        if self.is_connected and self.serial_port and self.serial_port.is_open:
+            self.serial_port.write(b"2")  # Send reverse command
+            self.log_message("Reverse command sent to robot.")
+        else:
+            self.log_message("Serial port not connected. Cannot send reverse command.")
+            messagebox.showwarning("Not Connected", "Please connect to the serial port first.")
+
     def create_map_window(self):
         """Create a separate window for the map visualization"""
         self.map_window = Toplevel(self.root)
@@ -602,7 +625,7 @@ class CombinedLocationVisualization:
         
         # Connect/Disconnect button
         self.conn_button = ttk.Button(self.conn_frame, text="Connect", command=self.toggle_connection,
-                                     style="Big.TButton")
+                                    style="Big.TButton")
         self.conn_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
         
         # Location settings frame
@@ -614,7 +637,7 @@ class CombinedLocationVisualization:
             row=0, column=0, padx=5, pady=5, sticky=tk.W)
         self.start_loc_var = tk.StringVar()
         self.start_loc_entry = ttk.Entry(self.location_frame, width=10, textvariable=self.start_loc_var, 
-                                       font=('TkDefaultFont', 10))
+                                    font=('TkDefaultFont', 10))
         self.start_loc_entry.grid(row=0, column=1, padx=5, pady=5)
         
         # Target location input
@@ -627,13 +650,39 @@ class CombinedLocationVisualization:
         
         # Set locations button
         self.set_locations_button = ttk.Button(self.location_frame, text="Set Locations", 
-                                             command=self.set_locations,
-                                             style="Big.TButton")
+                                            command=self.set_locations,
+                                            style="Big.TButton")
         self.set_locations_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
         
-        # Template & Algorithm Settings frame
+        # Add a robot control section after the location settings
+        self.robot_control_frame = ttk.LabelFrame(self.left_panel, text="Robot Controls")
+        self.robot_control_frame.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
+        
+        # Control buttons container
+        control_buttons_frame = ttk.Frame(self.robot_control_frame)
+        control_buttons_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        # Stop button
+        self.stop_button = ttk.Button(
+            control_buttons_frame,
+            text="STOP",
+            command=self.send_stop_command,
+            style="Stop.TButton"  # Use the specific stop button style
+        )
+        self.stop_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
+        
+        # Reverse button
+        self.reverse_button = ttk.Button(
+            control_buttons_frame,
+            text="REVERSE",
+            command=self.send_reverse_command,
+            style="Big.TButton"
+        )
+        self.reverse_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
+        
+        # Create the settings frame BEFORE trying to position it
         self.settings_frame = ttk.LabelFrame(self.left_panel, text="Map & Algorithm Settings")
-        self.settings_frame.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
+        self.settings_frame.grid(row=3, column=0, padx=5, pady=5, sticky="ew")
         
         # Use a notebook with tabs for better organization
         settings_notebook = ttk.Notebook(self.settings_frame)
@@ -671,8 +720,8 @@ class CombinedLocationVisualization:
         
         # Apply settings button
         self.apply_settings_button = ttk.Button(map_algo_tab, text="Apply Settings", 
-                                             command=self.apply_map_algo_settings,
-                                             style="Big.TButton")
+                                            command=self.apply_map_algo_settings,
+                                            style="Big.TButton")
         self.apply_settings_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
         
         # Tab 2: Template Settings
