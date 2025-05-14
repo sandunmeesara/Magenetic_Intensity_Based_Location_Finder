@@ -1441,6 +1441,8 @@ class CombinedLocationVisualization:
             
             # Add a legend
             legend_x = 10
+            # Place legend near the bottom of the map image
+            legend_y = self.map_image.height - 80 if hasattr(self, 'map_image') else 520
             self.map_canvas.create_oval(legend_x+10, legend_y+25, legend_x+20, legend_y+35, 
                                        fill="orange", outline="black", tags="all_locations")
             self.map_canvas.create_text(legend_x+70, legend_y+30, text="Location point", 
