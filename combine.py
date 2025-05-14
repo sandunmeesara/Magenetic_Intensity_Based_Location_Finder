@@ -47,6 +47,21 @@ class CombinedLocationVisualization:
         # Initialize the log_text as a None value
         self.log_text = None
         
+        # Add these new variables for map and magnetic data selection BEFORE load_data() call
+        self.map_paths = {
+            "Default Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Map_Marker/map.png",
+            "With Objects Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Map_Marker/map_with_objects.png"
+        }
+
+        # Add dictionary for magnetic data files
+        self.magnetic_data_paths = {
+            "Default Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/Locations_&_Magnetic_Data.csv",
+            "With Objects Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/Locations_&_Magnetic_Data_WithObjects.csv"
+        }
+
+        self.current_map = "Default Map"
+        self.current_algorithm = "Euclidean Distance"
+        
         # Load data
         self.load_data()
         
@@ -81,6 +96,7 @@ class CombinedLocationVisualization:
         self.left_panel.rowconfigure(3, weight=1)  # Extra space at the bottom
         self.left_panel.columnconfigure(0, weight=1)  # Full width
         
+        
         # Setup log panel first to initialize log_text
         self.setup_log_panel()
         
@@ -98,12 +114,6 @@ class CombinedLocationVisualization:
         
         # Force the window to update
         self.root.update_idletasks()
-        
-        # Add these new variables for map and algorithm selection
-        self.map_paths = {
-            "Default Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Map_Marker/map.png",
-            "With Objects Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Map_Marker/map_blueprint.png"
-        }
         
         self.current_map = "Default Map"
         self.current_algorithm = "Euclidean Distance"
@@ -154,8 +164,11 @@ class CombinedLocationVisualization:
             # Load location map coordinates for mapping
             self.coordinates = pd.read_csv("e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/Map_Image_Pixel_Coordinates_for_Locations.csv")
             
+            # Store the default magnetic data path
+            self.current_magnetic_data_path = self.magnetic_data_paths["Default Map"]
+            
             # Load reference location dataset for Euclidean distance calculation
-            self.ref_data = pd.read_csv("e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Location Identifier/Locations_&_Magnetic_Data.csv")
+            self.ref_data = pd.read_csv(self.current_magnetic_data_path)
         except Exception as e:
             messagebox.showerror("Data Loading Error", f"Failed to load data files: {str(e)}")
             raise
@@ -1459,11 +1472,23 @@ class CombinedLocationVisualization:
             if not map_path or not os.path.exists(map_path):
                 self.log_message(f"Warning: Map file not found at {map_path}")
                 messagebox.showwarning("Map Not Found", 
-                                      f"The selected map file was not found.\nUsing the current map instead.")
+                                    f"The selected map file was not found.\nUsing the current map instead.")
             else:
                 # Reload the map in the map window
                 self.reload_map(map_path)
                 self.log_message(f"Successfully applied map: {self.current_map}")
+                
+                # Load corresponding magnetic data file
+                mag_data_path = self.magnetic_data_paths.get(self.current_map)
+                if mag_data_path and os.path.exists(mag_data_path):
+                    # Update current path
+                    self.current_magnetic_data_path = mag_data_path
+                    
+                    # Reload the magnetic data
+                    self.reload_magnetic_data()
+                    self.log_message(f"Loaded magnetic data for {self.current_map}")
+                else:
+                    self.log_message(f"Warning: Magnetic data file for {self.current_map} not found")
             
             # Apply algorithm change
             self.log_message(f"Successfully applied algorithm: {self.current_algorithm}")
@@ -1480,7 +1505,30 @@ class CombinedLocationVisualization:
         except Exception as e:
             self.log_message(f"Error applying settings: {str(e)}")
             messagebox.showerror("Settings Error", f"Failed to apply settings: {str(e)}")
-    
+
+    def reload_magnetic_data(self):
+        """Reload the magnetic reference data from the current path"""
+        try:
+            # Load reference location dataset for Euclidean distance calculation
+            self.ref_data = pd.read_csv(self.current_magnetic_data_path)
+            self.log_message(f"Magnetic data reloaded from: {self.current_magnetic_data_path}")
+            
+            # Reset the particle filter if it exists
+            if hasattr(self, 'particle_filter') and self.particle_filter is not None:
+                self.particle_filter = None
+                
+            # Reset any template-related data
+            if hasattr(self, 'current_template_locations'):
+                self.current_template_locations = None
+                
+            # Update template info if available
+            if hasattr(self, 'template_info_text'):
+                self.update_template_info()
+                
+        except Exception as e:
+            self.log_message(f"Error reloading magnetic data: {str(e)}")
+            raise
+
     def reload_map(self, map_path):
         """Reload the map with a new image"""
         try:
