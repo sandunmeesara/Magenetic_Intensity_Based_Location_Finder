@@ -37,6 +37,14 @@ class CombinedLocationVisualization:
         self.vector = [0, 0, 0]
         self.history = []
         self.max_history = 100
+
+        # Initialize variables for magnetic intensity graph
+        self.intensity_history = []
+        self.time_history = []
+        self.max_graph_points = 100  # Maximum number of points to show in the graph
+        
+        # Create the graph window
+        self.create_intensity_graph_window()
         
         # Initialize visualization control variables
         self.show_history_var = tk.BooleanVar(value=True)
@@ -181,6 +189,149 @@ class CombinedLocationVisualization:
         self.current_loc_var = tk.StringVar(value="Not set")
         ttk.Label(self.map_status_frame, textvariable=self.current_loc_var, 
                  font=('Arial', 12, 'bold')).pack(side=tk.LEFT, padx=5, pady=5)
+    
+    def create_intensity_graph_window(self):
+        """Create a separate window for displaying the magnetic intensity graph"""
+        self.graph_window = Toplevel(self.root)
+        self.graph_window.title("Magnetic Intensity Graph")
+        self.graph_window.geometry("800x500")
+        self.graph_window.protocol("WM_DELETE_WINDOW", self.on_graph_window_close)
+        self.graph_window.minsize(600, 400)
+        
+        # Create a frame for the graph
+        self.graph_frame = ttk.Frame(self.graph_window)
+        self.graph_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Set up the matplotlib figure and axis
+        self.graph_fig = plt.Figure(figsize=(7, 4), dpi=100)
+        self.graph_ax = self.graph_fig.add_subplot(111)
+        
+        # Set up axis labels and title
+        self.graph_ax.set_xlabel('Time (s)')
+        self.graph_ax.set_ylabel('Magnetic Intensity (μT)')
+        self.graph_ax.set_title('Real-time Magnetic Intensity')
+        self.graph_ax.grid(True)
+        
+        # Create empty plot lines
+        self.line, = self.graph_ax.plot([], [], 'b-', linewidth=2)
+        
+        # Embed plot in tkinter window
+        self.graph_canvas = FigureCanvasTkAgg(self.graph_fig, master=self.graph_frame)
+        self.graph_canvas.draw()
+        self.graph_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        
+        # Add toolbar
+        from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+        toolbar = NavigationToolbar2Tk(self.graph_canvas, self.graph_frame)
+        toolbar.update()
+        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        # Add controls at the bottom
+        controls_frame = ttk.Frame(self.graph_window)
+        controls_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        # History length control
+        ttk.Label(controls_frame, text="Max Points:").pack(side=tk.LEFT, padx=5)
+        self.graph_points_var = tk.IntVar(value=self.max_graph_points)
+        points_spinbox = ttk.Spinbox(
+            controls_frame, 
+            from_=10, 
+            to=1000,
+            increment=10,
+            textvariable=self.graph_points_var,
+            width=5,
+            command=self.update_graph_settings
+        )
+        points_spinbox.pack(side=tk.LEFT, padx=5)
+        
+        # Clear button
+        ttk.Button(
+            controls_frame, 
+            text="Clear Graph", 
+            command=self.clear_intensity_graph
+        ).pack(side=tk.RIGHT, padx=5)
+        
+        # Initial message
+        self.graph_ax.text(
+            0.5, 0.5, 
+            "Waiting for sensor data...", 
+            horizontalalignment='center',
+            verticalalignment='center',
+            transform=self.graph_ax.transAxes,
+            fontsize=12
+        )
+        self.graph_canvas.draw()
+        
+        # Record the start time when creating the graph
+        self.graph_start_time = time.time()
+
+    def on_graph_window_close(self):
+        """Handle the graph window closing without closing the main application"""
+        self.log_message("Intensity graph window closed. You can reopen it from the menu.")
+        self.graph_window.withdraw()  # Hide instead of destroy
+
+    def update_graph_settings(self):
+        """Update graph settings when controls are changed"""
+        self.max_graph_points = self.graph_points_var.get()
+        
+        # Trim history if needed
+        if len(self.time_history) > self.max_graph_points:
+            self.time_history = self.time_history[-self.max_graph_points:]
+            self.intensity_history = self.intensity_history[-self.max_graph_points:]
+        
+        self.update_intensity_graph()
+
+    def clear_intensity_graph(self):
+        """Clear the intensity graph history"""
+        self.time_history = []
+        self.intensity_history = []
+        self.graph_start_time = time.time()  # Reset the start time
+        self.update_intensity_graph()
+        self.log_message("Intensity graph cleared")
+
+    def update_intensity_graph(self):
+        """Update the intensity graph with current data"""
+        # Clear axis 
+        self.graph_ax.clear()
+        
+        # Reset axis labels and grid
+        self.graph_ax.set_xlabel('Time (s)')
+        self.graph_ax.set_ylabel('Magnetic Intensity (μT)')
+        self.graph_ax.set_title('Real-time Magnetic Intensity')
+        self.graph_ax.grid(True)
+        
+        if len(self.time_history) > 0:
+            # Plot the data
+            self.graph_ax.plot(self.time_history, self.intensity_history, 'b-', linewidth=2)
+            
+            # Auto-adjust y axis with some padding
+            if len(self.intensity_history) > 0:
+                min_val = min(self.intensity_history)
+                max_val = max(self.intensity_history)
+                padding = (max_val - min_val) * 0.1 if max_val > min_val else 10
+                self.graph_ax.set_ylim([min_val - padding, max_val + padding])
+                
+                # Display current value as text
+                self.graph_ax.text(
+                    0.02, 0.95, 
+                    f"Current: {self.intensity_history[-1]:.2f} μT", 
+                    transform=self.graph_ax.transAxes,
+                    bbox=dict(facecolor='white', alpha=0.7)
+                )
+        else:
+            # Show waiting message if no data
+            self.graph_ax.text(
+                0.5, 0.5, 
+                "Waiting for sensor data...", 
+                horizontalalignment='center',
+                verticalalignment='center',
+                transform=self.graph_ax.transAxes,
+                fontsize=12
+            )
+        
+        # Redraw the canvas
+        self.graph_fig.tight_layout()
+        self.graph_canvas.draw()
     
     def on_map_window_close(self):
         """Handle the map window closing without closing the main application"""
@@ -1161,6 +1312,20 @@ class CombinedLocationVisualization:
                             magnitude = np.sqrt(sum(x*x for x in self.vector))
                             self.mag_var.set(f"{magnitude:.2f}")
                             
+                            # Update the intensity graph
+                            current_time = time.time() - self.graph_start_time
+                            self.time_history.append(current_time)
+                            self.intensity_history.append(magnitude)
+                            
+                            # Limit the number of points in the graph
+                            if len(self.time_history) > self.max_graph_points:
+                                self.time_history.pop(0)
+                                self.intensity_history.pop(0)
+                            
+                            # Update the graph if window exists and is visible
+                            if hasattr(self, 'graph_window') and self.graph_window.winfo_exists() and self.graph_window.winfo_viewable():
+                                self.update_intensity_graph()
+                            
                             # Process location data if we have set locations
                             if hasattr(self, 'Starting_location') and hasattr(self, 'Target_location'):
                                 # Find the closest matching location
@@ -1510,6 +1675,7 @@ class CombinedLocationVisualization:
         except Exception as e:
             self.log_message(f"Error updating robot position: {str(e)}")
     
+
     def on_closing(self):
         """Handle window closing event"""
         if self.is_connected:
@@ -1522,6 +1688,10 @@ class CombinedLocationVisualization:
         # Close template window if it exists
         if hasattr(self, 'template_window') and self.template_window.winfo_exists():
             self.template_window.destroy()
+            
+        # Close graph window if it exists
+        if hasattr(self, 'graph_window') and self.graph_window.winfo_exists():
+            self.graph_window.destroy()
         
         self.root.destroy()
     
