@@ -1105,6 +1105,17 @@ class CombinedLocationVisualization:
                                 if closest_location != self.previous_location:
                                     self.previous_location = closest_location
                                     self.update_robot_position(closest_location)
+                                    
+                                    # Check if robot has reached the target location
+                                    target_loc_name = self.Target_location.iloc[0]['Location']
+                                    if closest_location == target_loc_name:
+                                        # Send stop command to the robot
+                                        if self.is_connected and self.serial_port and self.serial_port.is_open:
+                                            self.serial_port.write(b"5")  # Send stop command
+                                            self.log_message("Target location reached! Robot stopped.")
+                                            # Optional: Play a sound or show a message box
+                                            messagebox.showinfo("Target Reached", 
+                                                            f"Robot has reached the target location: {target_loc_name}")
                     
                     except ValueError as e:
                         self.log_message(f"Error parsing data: {str(e)} in '{data}'")
