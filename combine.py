@@ -1298,9 +1298,9 @@ class CombinedLocationVisualization:
                 self.log_message("Intensity graph hidden")
                 self.toggle_graph_button.config(text="Show Intensity Graph")
                 
-                # Set flag to skip graph updates when hidden
+                # Set flag to skip graph updates and data collection when hidden
                 self.graph_update_enabled = False
-                self.log_message("Graph processing suspended to save resources")
+                self.log_message("Graph processing and data collection suspended to save resources")
             else:
                 # Show the graph window
                 self.graph_window.deiconify()
@@ -1311,16 +1311,11 @@ class CombinedLocationVisualization:
                 # Enable graph updates
                 self.graph_update_enabled = True
                 
+                # Reset the start time when showing graph again
+                self.graph_start_time = time.time()
+                
                 # Update the graph with latest data
                 self.update_intensity_graph()
-        else:
-            # Create the graph window if it doesn't exist
-            self.create_intensity_graph_window()
-            self.log_message("Intensity graph window created and shown")
-            self.toggle_graph_button.config(text="Hide Intensity Graph")
-            
-            # Enable graph updates
-            self.graph_update_enabled = True
     
     def read_serial_data(self):
         """Read data from the serial port in a separate thread with improved error handling"""
@@ -1401,20 +1396,22 @@ class CombinedLocationVisualization:
                             # Calculate magnitude
                             magnitude = np.sqrt(sum(x*x for x in self.vector))
                             self.mag_var.set(f"{magnitude:.2f}")
-                            
-                            # Update the intensity graph
-                            current_time = time.time() - self.graph_start_time
-                            self.time_history.append(current_time)
-                            self.intensity_history.append(magnitude)
-                            
-                            # Limit the number of points in the graph
-                            if len(self.time_history) > self.max_graph_points:
-                                self.time_history.pop(0)
-                                self.intensity_history.pop(0)
-                            
-                            # Update the graph if window exists and updates are enabled
-                            if hasattr(self, 'graph_update_enabled') and self.graph_update_enabled and hasattr(self, 'graph_window') and self.graph_window.winfo_exists():
-                                self.update_intensity_graph()
+
+                            # Only collect data and update the graph if enabled
+                            if hasattr(self, 'graph_update_enabled') and self.graph_update_enabled:
+                                # Update the intensity graph data
+                                current_time = time.time() - self.graph_start_time
+                                self.time_history.append(current_time)
+                                self.intensity_history.append(magnitude)
+                                
+                                # Limit the number of points in the graph
+                                if len(self.time_history) > self.max_graph_points:
+                                    self.time_history.pop(0)
+                                    self.intensity_history.pop(0)
+                                
+                                # Update the graph if window exists
+                                if hasattr(self, 'graph_window') and self.graph_window.winfo_exists():
+                                    self.update_intensity_graph()
                             
                             # Process location data if we have set locations
                             if hasattr(self, 'Starting_location') and hasattr(self, 'Target_location'):
