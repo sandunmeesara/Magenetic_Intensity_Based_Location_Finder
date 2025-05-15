@@ -210,6 +210,10 @@ class CombinedLocationVisualization:
         self.graph_window.protocol("WM_DELETE_WINDOW", self.on_graph_window_close)
         self.graph_window.minsize(600, 400)
         
+        # Update toggle button text if it exists
+        if hasattr(self, 'toggle_graph_button'):
+            self.toggle_graph_button.config(text="Hide Intensity Graph")
+
         # Create a frame for the graph
         self.graph_frame = ttk.Frame(self.graph_window)
         self.graph_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -281,6 +285,9 @@ class CombinedLocationVisualization:
         """Handle the graph window closing without closing the main application"""
         self.log_message("Intensity graph window closed. You can reopen it from the menu.")
         self.graph_window.withdraw()  # Hide instead of destroy
+        # Update toggle button text if it exists
+        if hasattr(self, 'toggle_graph_button'):
+            self.toggle_graph_button.config(text="Show Intensity Graph")
 
     def update_graph_settings(self):
         """Update graph settings when controls are changed"""
@@ -917,6 +924,15 @@ class CombinedLocationVisualization:
                                             style="Big.TButton")
         self.apply_settings_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
         
+        # Add a toggle button for the line graph below the apply settings button (around line 809)
+        self.toggle_graph_button = ttk.Button(
+            map_algo_tab, 
+            text="Toggle Intensity Graph", 
+            command=self.toggle_intensity_graph,
+            style="Big.TButton"
+        )
+        self.toggle_graph_button.grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
+
         # Tab 2: Template Settings
         template_tab = ttk.Frame(settings_notebook)
         settings_notebook.add(template_tab, text="Template Settings")
@@ -1269,6 +1285,26 @@ class CombinedLocationVisualization:
         except Exception as e:
             self.log_message(f"Error updating map: {str(e)}")
             messagebox.showerror("Map Error", f"Failed to update map: {str(e)}")
+
+    def toggle_intensity_graph(self):
+        """Toggle the visibility of the intensity graph window"""
+        if hasattr(self, 'graph_window'):
+            if self.graph_window.winfo_viewable():
+                self.graph_window.withdraw()
+                self.log_message("Intensity graph hidden")
+                self.toggle_graph_button.config(text="Show Intensity Graph")
+            else:
+                self.graph_window.deiconify()
+                self.graph_window.lift()
+                self.log_message("Intensity graph shown")
+                self.toggle_graph_button.config(text="Hide Intensity Graph")
+                # Update the graph with latest data
+                self.update_intensity_graph()
+        else:
+            # Create the graph window if it doesn't exist
+            self.create_intensity_graph_window()
+            self.log_message("Intensity graph window created and shown")
+            self.toggle_graph_button.config(text="Hide Intensity Graph")
     
     def read_serial_data(self):
         """Read data from the serial port in a separate thread with improved error handling"""
