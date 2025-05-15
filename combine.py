@@ -42,6 +42,7 @@ class CombinedLocationVisualization:
         self.show_history_var = tk.BooleanVar(value=True)
         self.show_proj_var = tk.BooleanVar(value=True)
         self.auto_scale_var = tk.BooleanVar(value=True)
+        self.vector_visualization_enabled = tk.BooleanVar(value=True)  # Add this line
         
         # Serial connection parameters
         self.serial_port = None
@@ -372,6 +373,14 @@ class CombinedLocationVisualization:
             command=self.update_vector_plot
         )
         scale_check.pack(side=tk.LEFT, padx=10)
+        
+        # Add toggle visualization button
+        self.toggle_viz_btn = ttk.Button(
+            checkbox_frame,
+            text="Pause Visualization",
+            command=self.toggle_vector_visualization
+        )
+        self.toggle_viz_btn.pack(side=tk.RIGHT, padx=10)
         
         # Add refresh button with standard style
         refresh_btn = ttk.Button(
@@ -900,10 +909,15 @@ class CombinedLocationVisualization:
             interval=100,  # Update every 100 ms
             blit=False
         )
+        
+        # Stop the animation initially if visualization is disabled
+        if not self.vector_visualization_enabled.get():
+            self.ani.event_source.stop()
     
     def _animate(self, i):
         """Animation function for FuncAnimation"""
-        self.update_vector_plot()
+        if self.vector_visualization_enabled.get():
+            self.update_vector_plot()
         return []
     
     def set_locations(self):
@@ -1282,6 +1296,28 @@ class CombinedLocationVisualization:
         
         # Redraw the canvas
         self.canvas.draw()
+
+    def toggle_vector_visualization(self):
+        """Toggle the vector visualization on and off"""
+        current_state = self.vector_visualization_enabled.get()
+        new_state = not current_state
+        self.vector_visualization_enabled.set(new_state)
+        
+        # Update button text based on state
+        if new_state:
+            self.toggle_viz_btn.config(text="Pause Visualization")
+            self.log_message("Vector visualization enabled")
+            
+            # Restart animation if it was stopped
+            if hasattr(self, 'ani') and self.ani is not None:
+                self.ani.event_source.start()
+        else:
+            self.toggle_viz_btn.config(text="Resume Visualization")
+            self.log_message("Vector visualization paused")
+            
+            # Stop animation
+            if hasattr(self, 'ani') and self.ani is not None:
+                self.ani.event_source.stop()
     
     def log_message(self, message):
         """Add a message to the log with timestamp"""
