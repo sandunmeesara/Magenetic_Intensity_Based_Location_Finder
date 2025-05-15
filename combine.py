@@ -132,6 +132,18 @@ class CombinedLocationVisualization:
         self.current_algorithm = "Euclidean Distance"
         # Initialize particle filter (will be created when needed)
         self.particle_filter = None
+        # Initialize the particle button state
+        self.toggle_particle_button_state()
+
+    def toggle_particle_button_state(self):
+        """Enable or disable particle visualization button based on selected algorithm"""
+        if hasattr(self, 'visualize_particles_btn'):
+            if self.algo_var.get() == "Particle Filter":
+                self.visualize_particles_btn.config(state=tk.NORMAL)
+                self.log_message("Particle visualization enabled")
+            else:
+                self.visualize_particles_btn.config(state=tk.DISABLED)
+                self.log_message("Particle visualization disabled - only available with Particle Filter algorithm")
     
     def send_stop_command(self):
         """Send stop command to the robot"""
@@ -730,7 +742,20 @@ class CombinedLocationVisualization:
             text="Show Template on Map", 
             command=self.apply_template_to_main_map
         )
-        show_template_btn.grid(row=5, column=0, columnspan=4, padx=5, pady=5, sticky=tk.EW)
+        show_template_btn.grid(row=5, column=0, columnspan=2, padx=5, pady=5, sticky=tk.W)
+
+        # Button to visualize particles (placed next to the Show Template button)
+        self.visualize_particles_btn = ttk.Button(
+            template_frame,
+            text="Visualize Particles",
+            command=self.visualize_particles,
+            state=tk.DISABLED  # Initialize as disabled
+        )
+        self.visualize_particles_btn.grid(row=5, column=1, padx=5, pady=5, sticky=tk.W)
+
+        # Add to the template_tab or create a new tab for particle filter visualization
+        particle_frame = ttk.Frame(template_tab)
+        particle_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         # Add to the template_tab or create a new tab for particle filter visualization
         particle_frame = ttk.Frame(template_tab)
@@ -952,7 +977,20 @@ class CombinedLocationVisualization:
             text="Show Template on Map", 
             command=self.apply_template_to_main_map
         )
-        show_template_btn.grid(row=5, column=0, columnspan=4, padx=5, pady=5, sticky=tk.EW)
+        show_template_btn.grid(row=5, column=0, columnspan=2, padx=5, pady=5, sticky=tk.W)
+
+        # Button to visualize particles (placed next to the Show Template button)
+        self.visualize_particles_btn = ttk.Button(
+            template_frame,
+            text="Visualize Particles",
+            command=self.visualize_particles,
+            state=tk.DISABLED  # Initialize as disabled
+        )
+        self.visualize_particles_btn.grid(row=5, column=1, padx=5, pady=5, sticky=tk.W)
+
+        # Add to the template_tab or create a new tab for particle filter visualization
+        particle_frame = ttk.Frame(template_tab)
+        particle_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         # Add to the template_tab or create a new tab for particle filter visualization
         particle_frame = ttk.Frame(template_tab)
@@ -1710,6 +1748,9 @@ class CombinedLocationVisualization:
         if (selected_algo != self.current_algorithm):
             self.current_algorithm = selected_algo
             self.log_message(f"Algorithm changed to: {selected_algo}")
+            
+            # Update particle button state when algorithm changes
+            self.toggle_particle_button_state()
             
             # The algorithm will be applied when Apply is clicked
     
