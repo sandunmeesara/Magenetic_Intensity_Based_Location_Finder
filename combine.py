@@ -37,6 +37,7 @@ class CombinedLocationVisualization:
         self.vector = [0, 0, 0]
         self.history = []
         self.max_history = 100
+        self.particles_visible = False
         
         # Initialize visualization control variables
         self.show_history_var = tk.BooleanVar(value=True)
@@ -136,10 +137,20 @@ class CombinedLocationVisualization:
         if hasattr(self, 'visualize_particles_btn'):
             if self.algo_var.get() == "Particle Filter":
                 self.visualize_particles_btn.config(state=tk.NORMAL)
+                # Update button text based on current visibility
+                if hasattr(self, 'particles_visible') and self.particles_visible:
+                    self.visualize_particles_btn.config(text="Hide Particles")
+                else:
+                    self.visualize_particles_btn.config(text="Show Particles")
                 self.log_message("Particle visualization enabled")
             else:
                 self.visualize_particles_btn.config(state=tk.DISABLED)
                 self.log_message("Particle visualization disabled - only available with Particle Filter algorithm")
+                # Hide any particles if algorithm is changed
+                if hasattr(self, 'particles_visible') and self.particles_visible:
+                    self.map_canvas.delete("particles")
+                    self.particles_visible = False
+
 
     def send_stop_command(self):
         """Send stop command to the robot"""
@@ -1204,6 +1215,10 @@ class CombinedLocationVisualization:
                                     self.previous_location = closest_location
                                     self.update_robot_position(closest_location)
                                     
+                                    # Auto-update particles if particle filter is selected and particles are visible
+                                    if self.current_algorithm == "Particle Filter" and hasattr(self, 'particles_visible') and self.particles_visible:
+                                        self._update_particle_visualization()
+
                                     # Check if robot has reached the target location
                                     target_loc_name = self.Target_location.iloc[0]['Location']
                                     if closest_location == target_loc_name:
@@ -1633,10 +1648,22 @@ class CombinedLocationVisualization:
             if self.current_algorithm == "Particle Filter":
                 self.particle_filter = None  # Will be recreated on next data point
                 self.log_message("Particle filter will be initialized with next data point")
+                
+                # Reset particle visibility state
+                self.particles_visible = False
+                if hasattr(self, 'visualize_particles_btn'):
+                    self.visualize_particles_btn.config(text="Show Particles")
+            else:
+                # Clear any particles if switching away from particle filter
+                self.map_canvas.delete("particles")
+                self.particles_visible = False
             
             # If locations are set, update the map
             if hasattr(self, 'Starting_location') and hasattr(self, 'Target_location'):
                 self.update_map(self.Starting_location, self.Target_location)
+                
+            # Update the particle button state (enable/disable based on algorithm)
+            self.toggle_particle_button_state()
                 
         except Exception as e:
             self.log_message(f"Error applying settings: {str(e)}")
@@ -2127,8 +2154,31 @@ class CombinedLocationVisualization:
             self.log_message(f"Template info error: {str(e)}")
 
     def visualize_particles(self):
-        """Visualize particle distribution on the map"""
+        """Toggle particle visualization on the map"""
         try:
+            # If particles are currently visible, hide them
+            if self.particles_visible:
+                self.map_canvas.delete("particles")
+                self.particles_visible = False
+                self.visualize_particles_btn.config(text="Show Particles")
+                self.log_message("Particle visualization hidden")
+                return
+                    
+            # Otherwise, show the particles
+            self.particles_visible = True
+            self.visualize_particles_btn.config(text="Hide Particles")
+            
+            # Create or update particle filter if needed
+            self._update_particle_visualization()
+            
+        except Exception as e:
+            self.log_message(f"Error visualizing particles: {str(e)}")
+            self.particles_visible = False
+
+    def _update_particle_visualization(self):
+        """Helper method to update particle visualization without changing visibility state"""
+        try:
+            # Check if we have a particle filter
             if not hasattr(self, 'particle_filter') or self.particle_filter is None:
                 self.log_message("No particle filter available for visualization")
                 
@@ -2145,6 +2195,10 @@ class CombinedLocationVisualization:
                     self.log_message("Please select Particle Filter algorithm and apply settings first")
                     return
             
+            # Only proceed if particles should be visible
+            if not self.particles_visible:
+                return
+                
             # Clear previous particle visualization
             self.map_canvas.delete("particles")
             
@@ -2219,9 +2273,10 @@ class CombinedLocationVisualization:
                 tags="particles", anchor="w"
             )
             
-            self.log_message(f"Visualized {particles_drawn} particles on the map")
+            self.log_message(f"Updated particle visualization with {particles_drawn} particles")
+            
         except Exception as e:
-            self.log_message(f"Error visualizing particles: {str(e)}")
+            self.log_message(f"Error updating particle visualization: {str(e)}")
 
 class ParticleFilter:
     """Particle filter implementation for magnetic vector-based localization"""
