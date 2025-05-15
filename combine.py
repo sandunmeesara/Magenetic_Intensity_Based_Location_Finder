@@ -54,6 +54,10 @@ class CombinedLocationVisualization:
         # Initialize the log_text as a None value
         self.log_text = None
         
+        # Line graph initialization
+        self.line_graph_data = {'x': [], 'y': [], 'z': [], 'time': []}
+        self.line_graph_time = 0
+        
         # Add these new variables for map and magnetic data selection BEFORE load_data() call
         self.map_paths = {
             "Default Map": "e:/University/University lectures/4. Final Year/Semester 8/1. Research Project/Codes/Map_Marker/map.png",
@@ -554,6 +558,7 @@ class CombinedLocationVisualization:
                                              style="Big.TButton")
         self.apply_settings_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
         
+        
         # Tab 2: Template Settings - NEW integrated tab
         template_tab = ttk.Frame(settings_notebook)
         settings_notebook.add(template_tab, text="Template Settings")
@@ -777,6 +782,22 @@ class CombinedLocationVisualization:
                                             style="Big.TButton")
         self.apply_settings_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
         
+        # Add line graph toggle button with distinctive styling
+        style = ttk.Style()
+        style.configure("LineGraph.TButton", 
+                        background="lightblue", 
+                        font=('TkDefaultFont', 11, 'bold'), 
+                        padding=5)
+        
+        self.line_graph_btn = ttk.Button(
+            map_algo_tab, 
+            text="Show Line Graph", 
+            command=self.toggle_line_graph,
+            style="LineGraph.TButton"  # Use the custom style
+        )
+        self.line_graph_btn.grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)        
+
+
         # Tab 2: Template Settings
         template_tab = ttk.Frame(settings_notebook)
         settings_notebook.add(template_tab, text="Template Settings")
@@ -1334,6 +1355,173 @@ class CombinedLocationVisualization:
             if hasattr(self, 'ani') and self.ani is not None:
                 self.ani.event_source.stop()
     
+    def toggle_line_graph(self):
+        """Toggle the line graph window on and off"""
+        if hasattr(self, 'line_graph_window') and self.line_graph_window.winfo_exists():
+            # Window exists, so toggle visibility
+            if self.line_graph_window.winfo_viewable():
+                self.line_graph_window.withdraw()
+                self.line_graph_btn.config(text="Show Line Graph")
+                self.log_message("Line graph hidden")
+            else:
+                self.line_graph_window.deiconify()
+                self.line_graph_window.lift()
+                self.line_graph_btn.config(text="Hide Line Graph")
+                self.log_message("Line graph shown")
+        else:
+            # Create the window
+            self.create_line_graph_window()
+            self.line_graph_btn.config(text="Hide Line Graph")
+            self.log_message("Line graph created and shown")    
+
+    def create_line_graph_window(self):
+        """Create a new window for line graph visualization"""
+        self.line_graph_window = Toplevel(self.root)
+        self.line_graph_window.title("Magnetic Vector Line Graph")
+        self.line_graph_window.geometry("800x600")
+        self.line_graph_window.minsize(600, 400)
+        self.line_graph_window.protocol("WM_DELETE_WINDOW", lambda: self.toggle_line_graph())
+        
+        # Create a frame for the graph
+        graph_frame = ttk.Frame(self.line_graph_window)
+        graph_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Create matplotlib figure for line plots
+        self.line_fig = plt.Figure(figsize=(6, 5), dpi=100)
+        
+        # Create three subplots for X, Y, Z components
+        self.line_ax1 = self.line_fig.add_subplot(311) # X component
+        self.line_ax2 = self.line_fig.add_subplot(312) # Y component
+        self.line_ax3 = self.line_fig.add_subplot(313) # Z component
+        
+        # Set titles and labels
+        self.line_ax1.set_title('Magnetic Vector Components Over Time')
+        self.line_ax1.set_ylabel('X (μT)')
+        self.line_ax2.set_ylabel('Y (μT)')
+        self.line_ax3.set_ylabel('Z (μT)')
+        self.line_ax3.set_xlabel('Time (samples)')
+        
+        # Tight layout to optimize spacing
+        self.line_fig.tight_layout()
+        
+        # Embed the plot in tkinter window
+        self.line_canvas = FigureCanvasTkAgg(self.line_fig, master=graph_frame)
+        self.line_canvas.draw()
+        line_widget = self.line_canvas.get_tk_widget()
+        line_widget.pack(fill=tk.BOTH, expand=True)
+        
+        # Add toolbar for zooming and panning
+        from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+        toolbar = NavigationToolbar2Tk(self.line_canvas, graph_frame)
+        toolbar.update()
+        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        # Controls frame
+        controls_frame = ttk.Frame(self.line_graph_window)
+        controls_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        # Add display length control
+        ttk.Label(controls_frame, text="Display Length:").pack(side=tk.LEFT, padx=5)
+        
+        # Variable for display length
+        self.display_length_var = tk.IntVar(value=100)
+        
+        # Spinbox for display length
+        length_spinbox = ttk.Spinbox(
+            controls_frame,
+            from_=20,
+            to=500,
+            increment=10,
+            textvariable=self.display_length_var,
+            width=5
+        )
+        length_spinbox.pack(side=tk.LEFT, padx=5)
+        
+        # Add pause/resume button
+        self.graph_pause_var = tk.BooleanVar(value=False)
+        self.graph_pause_btn = ttk.Checkbutton(
+            controls_frame,
+            text="Pause Graph Updates",
+            variable=self.graph_pause_var
+        )
+        self.graph_pause_btn.pack(side=tk.RIGHT, padx=10)
+        
+        # Initialize data storage for the line graph
+        self.line_graph_data = {'x': [], 'y': [], 'z': [], 'time': []}
+        self.line_graph_time = 0
+        
+        # Schedule the initial update
+        self.line_graph_window.after(100, self.update_line_graph)
+            
+    def update_line_graph(self):
+        """Update the line graph with current vector data"""
+        # Only update if the window exists and is visible
+        if (hasattr(self, 'line_graph_window') and 
+            self.line_graph_window.winfo_exists() and 
+            self.line_graph_window.winfo_viewable() and
+            not self.graph_pause_var.get()):
+            
+            # Add current vector data to the graph data
+            if hasattr(self, 'vector') and self.vector:
+                self.line_graph_data['x'].append(self.vector[0])
+                self.line_graph_data['y'].append(self.vector[1])
+                self.line_graph_data['z'].append(self.vector[2])
+                self.line_graph_data['time'].append(self.line_graph_time)
+                self.line_graph_time += 1
+                
+                # Limit data length to display_length
+                max_length = self.display_length_var.get()
+                if len(self.line_graph_data['x']) > max_length:
+                    self.line_graph_data['x'] = self.line_graph_data['x'][-max_length:]
+                    self.line_graph_data['y'] = self.line_graph_data['y'][-max_length:]
+                    self.line_graph_data['z'] = self.line_graph_data['z'][-max_length:]
+                    self.line_graph_data['time'] = self.line_graph_data['time'][-max_length:]
+                
+                # Clear the axes
+                self.line_ax1.clear()
+                self.line_ax2.clear()
+                self.line_ax3.clear()
+                
+                # Plot the data
+                self.line_ax1.plot(self.line_graph_data['time'], self.line_graph_data['x'], 'r-')
+                self.line_ax2.plot(self.line_graph_data['time'], self.line_graph_data['y'], 'g-')
+                self.line_ax3.plot(self.line_graph_data['time'], self.line_graph_data['z'], 'b-')
+                
+                # Set titles and labels
+                self.line_ax1.set_title('Magnetic Vector Components Over Time')
+                self.line_ax1.set_ylabel('X (μT)', color='red')
+                self.line_ax2.set_ylabel('Y (μT)', color='green')
+                self.line_ax3.set_ylabel('Z (μT)', color='blue')
+                self.line_ax3.set_xlabel('Time (samples)')
+                
+                # Set consistent y-axis limits based on data range
+                if len(self.line_graph_data['x']) > 1:
+                    # Find min and max across all components
+                    all_data = (
+                        self.line_graph_data['x'] + 
+                        self.line_graph_data['y'] + 
+                        self.line_graph_data['z']
+                    )
+                    data_min = min(all_data)
+                    data_max = max(all_data)
+                    
+                    # Add 10% padding
+                    y_range = data_max - data_min
+                    y_min = data_min - y_range * 0.1
+                    y_max = data_max + y_range * 0.1
+                    
+                    self.line_ax1.set_ylim(y_min, y_max)
+                    self.line_ax2.set_ylim(y_min, y_max)
+                    self.line_ax3.set_ylim(y_min, y_max)
+                
+                # Update the figure
+                self.line_fig.tight_layout()
+                self.line_canvas.draw()
+        
+        # Schedule the next update
+        if hasattr(self, 'line_graph_window') and self.line_graph_window.winfo_exists():
+            self.line_graph_window.after(100, self.update_line_graph)
+
     def log_message(self, message):
         """Add a message to the log with timestamp"""
         timestamp = time.strftime("%H:%M:%S", time.localtime())
@@ -1591,6 +1779,10 @@ class CombinedLocationVisualization:
         # Close template window if it exists
         if hasattr(self, 'template_window') and self.template_window.winfo_exists():
             self.template_window.destroy()
+        
+        # Close line graph window if it exists
+        if hasattr(self, 'line_graph_window') and self.line_graph_window.winfo_exists():
+            self.line_graph_window.destroy()
         
         self.root.destroy()
     
