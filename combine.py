@@ -1335,7 +1335,7 @@ class CombinedLocationVisualization:
                     filtered_data, 
                     num_particles=200,  # Adjust based on your needs
                     sensor_noise=2.0,  # Adjust based on your sensor characteristics
-                    motion_noise=2.0    # Adjust based on expected movement
+                    motion_noise=3.0    # Adjust based on expected movement
                 )
                 self.last_filtered_data_size = len(filtered_data)
                 self.log_message(f"Initialized Particle Filter with {len(filtered_data)} locations and 200 particles")
@@ -2127,7 +2127,7 @@ class CombinedLocationVisualization:
 class ParticleFilter:
     """Particle filter implementation for magnetic vector-based localization"""
     
-    def __init__(self, locations_data, num_particles=100, sensor_noise=10.0, motion_noise=2.0):
+    def __init__(self, locations_data, num_particles=100, sensor_noise=2.0, motion_noise=3.0):
         """Initialize the particle filter
         
         Args:
