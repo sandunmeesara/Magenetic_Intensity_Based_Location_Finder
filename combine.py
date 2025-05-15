@@ -43,6 +43,9 @@ class CombinedLocationVisualization:
         self.time_history = []
         self.max_graph_points = 100  # Maximum number of points to show in the graph
         
+        # Initial state of graph updates
+        self.graph_update_enabled = False
+        
         # Create the graph window
         self.create_intensity_graph_window()
         
@@ -1290,14 +1293,24 @@ class CombinedLocationVisualization:
         """Toggle the visibility of the intensity graph window"""
         if hasattr(self, 'graph_window'):
             if self.graph_window.winfo_viewable():
+                # Hide the graph window
                 self.graph_window.withdraw()
                 self.log_message("Intensity graph hidden")
                 self.toggle_graph_button.config(text="Show Intensity Graph")
+                
+                # Set flag to skip graph updates when hidden
+                self.graph_update_enabled = False
+                self.log_message("Graph processing suspended to save resources")
             else:
+                # Show the graph window
                 self.graph_window.deiconify()
                 self.graph_window.lift()
                 self.log_message("Intensity graph shown")
                 self.toggle_graph_button.config(text="Hide Intensity Graph")
+                
+                # Enable graph updates
+                self.graph_update_enabled = True
+                
                 # Update the graph with latest data
                 self.update_intensity_graph()
         else:
@@ -1305,6 +1318,9 @@ class CombinedLocationVisualization:
             self.create_intensity_graph_window()
             self.log_message("Intensity graph window created and shown")
             self.toggle_graph_button.config(text="Hide Intensity Graph")
+            
+            # Enable graph updates
+            self.graph_update_enabled = True
     
     def read_serial_data(self):
         """Read data from the serial port in a separate thread with improved error handling"""
@@ -1396,8 +1412,8 @@ class CombinedLocationVisualization:
                                 self.time_history.pop(0)
                                 self.intensity_history.pop(0)
                             
-                            # Update the graph if window exists and is visible
-                            if hasattr(self, 'graph_window') and self.graph_window.winfo_exists() and self.graph_window.winfo_viewable():
+                            # Update the graph if window exists and updates are enabled
+                            if hasattr(self, 'graph_update_enabled') and self.graph_update_enabled and hasattr(self, 'graph_window') and self.graph_window.winfo_exists():
                                 self.update_intensity_graph()
                             
                             # Process location data if we have set locations
